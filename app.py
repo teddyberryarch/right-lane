@@ -184,11 +184,17 @@ def call_claude(prompt, model):
     if not key: raise HTTPException(503, "ANTHROPIC_API_KEY가 서버에 없다. Railway 변수에 넣어줘.")
     import anthropic
     client = anthropic.Anthropic(api_key=key)
-    msg = client.messages.create(model=model, max_tokens=4000, messages=[{"role": "user", "content": prompt}])
-    text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m: raise HTTPException(502, "모델이 JSON을 안 줬다. 다시 눌러줘.")
-    return json.loads(m.group(0))
+    last = ""
+    for attempt in range(2):
+        msg = client.messages.create(model=model, max_tokens=8000, system="너는 JSON만 출력하는 작가다. 설명·코드펜스 없이 JSON 객체 하나만 출력한다.", messages=[{"role": "user", "content": prompt}, {"role": "assistant", "content": "{"}])
+        text = "{" + "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
+        last = text[:300]
+        m = re.search(r"\{.*\}", text, re.S)
+        if m:
+            try: return json.loads(m.group(0))
+            except Exception: pass
+        (DATA / "last_bad.txt").write_text(text, "utf-8")
+    raise HTTPException(502, f"모델이 JSON을 안 줬다: {last[:80]}")
 
 @app.post("/api/script")
 def api_script(req: ScriptReq):
