@@ -186,9 +186,10 @@ def call_claude(prompt, model):
     client = anthropic.Anthropic(api_key=key)
     last = ""
     for attempt in range(2):
-        msg = client.messages.create(model=model, max_tokens=8000, system="너는 JSON만 출력하는 작가다. 설명·코드펜스 없이 JSON 객체 하나만 출력한다.", messages=[{"role": "user", "content": prompt}, {"role": "assistant", "content": "{"}])
-        text = "{" + "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
+        msg = client.messages.create(model=model, max_tokens=8000, system="너는 JSON만 출력하는 작가다. 설명·코드펜스 없이 JSON 객체 하나만 출력한다.", messages=[{"role": "user", "content": prompt}])
+        text = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
         last = text[:300]
+        text = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip()
         m = re.search(r"\{.*\}", text, re.S)
         if m:
             try: return json.loads(m.group(0))
