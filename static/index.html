@@ -80,7 +80,7 @@ footer a{color:var(--amber)}
 <div class="wrap">
   <header>
     <div class="logo"><div class="mark">RL</div><div><h1 id="stName">우측통행</h1><div class="sub" id="stSub">RIGHT LANE NETWORK · 실제 헤드라인, 수상한 앵커들</div></div></div>
-    <nav><a href="#guide">편성표</a><a href="#programs">프로그램</a><a href="#replays">다시보기</a><a href="#ask">데스크에 묻기</a><a href="#about">소개</a><a href="/studio">조정실</a></nav>
+    <nav><a href="#guide">편성표</a><a href="#programs">프로그램</a><a href="#replays">다시보기</a><a href="#ask">데스크에 묻기</a><a href="#tip">후원</a><a href="#about">소개</a><a href="/api/today" target="_blank" rel="noopener">오늘의 우측통행</a><a href="/studio">조정실</a></nav>
     <div class="live"><span class="dot"></span><span>LIVE KST <span id="hdrClock">--:--</span></span></div>
   </header>
 
@@ -98,6 +98,7 @@ footer a{color:var(--amber)}
     <div class="ctl">
       <button type="button" id="tvOff" hidden>■ 끄기</button>
       <button type="button" class="small" id="skip" hidden>다음 방송 ▶▶</button>
+      <button type="button" class="small" id="fs">전체 화면</button>
       <label style="font-size:15px;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="useTts" checked> 음성</label><span class="lab" id="ttsNote"></span>
       <span class="status" id="status"></span>
     </div>
@@ -107,18 +108,26 @@ footer a{color:var(--amber)}
     <section class="panel" id="guide"><h2>편성표</h2>
       <p class="note">서울 시간 기준. 각 시간대에 들어오면 서버가 그 프로그램 대본을 자동으로 쓰고, TV는 가장 최근 방송부터 이어서 튼다.</p>
       <table><thead><tr><th>시간</th><th>프로그램</th><th>상태</th></tr></thead><tbody id="guideBody"></tbody></table>
+      <p class="note" id="qNote"></p>
       <p class="note" id="autoNote">자동 편성 상태 불러오는 중…</p>
     </section>
     <section class="panel" id="ask"><h2>데스크에 묻기</h2>
       <p class="note">PNN의 "Ask the desk"와 같은 것. 시청자가 앵커에게 질문을 보내면 앵커 셋이 최근 방송 내용 안에서 짧게 답한다. 방송 중이면 화면에서도 읽어준다.</p><div class="qs"><button type="button" class="small">오늘 제일 큰 이슈가 뭐야?</button><button type="button" class="small">팩트-1, 아까 그 주장 확인된 거야?</button><button type="button" class="small">한직진, 너 입장은 뭔데</button></div>
-      <div class="ask"><input type="text" id="askIn" placeholder="예: 오늘 청문회 핵심이 뭐야?"><button type="button" class="primary" id="askBtn" style="font-size:18px">묻기</button></div>
+      <div class="ctl" style="gap:8px"><label class="lab" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="akind" value="question" checked> 질문</label><label class="lab" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="akind" value="letter"> 편지</label><input type="text" id="askName" placeholder="이름 (방송에서 불림, 선택)" style="max-width:220px"></div>
+      <div class="ask"><input type="text" id="askIn" placeholder="데스크에 보낼 질문"><button type="button" class="primary" id="askBtn" style="font-size:18px">보내기</button></div>
+      <p class="note">보낸 질문은 바로 답을 받고, 다음 저녁·심야·토크 방송에서 이름과 함께 읽힐 수 있다.</p>
       <div id="askOut" class="list"></div>
     </section>
   </div>
 
   <section class="panel" id="programs"><h2>프로그램</h2><p class="note">시간대마다 다른 프로그램이 나온다. 진행자는 고정 출연진 3명.</p><div class="shows" id="progList"></div></section>
 
-  <section class="panel" id="replays"><h2>다시보기</h2><div class="list" id="replayList"><p class="note">아직 방송이 없다.</p></div></section>
+  <section class="panel" id="replays"><div class="ctl" style="justify-content:space-between"><h2>다시보기</h2><input type="text" id="rsearch" placeholder="다시보기 검색" style="max-width:260px"></div><p class="note">최근 60편 보관. 각 편은 대본과 음성을 그대로 다시 튼다.</p><div class="list" id="replayList"><p class="note">아직 방송이 없다.</p></div></section>
+
+  <div class="two">
+    <section class="panel" id="tip"><h2>데스크에 술 한잔</h2><p class="note">PNN의 "Newscaster Treasury"에 해당하는 후원함. 아직 계좌·송금 수단을 연결하지 않았다. 열리면 5천 원 이상 후원은 방송에서 이름을 불러 감사 인사를 한다. 후원은 돌려받을 수 없는 선물이며 투자가 아니다.</p><div class="pix" style="color:var(--muted)">TREASURY ₩0 · 준비 중</div></section>
+    <section class="panel" id="social"><h2>채널</h2><p class="note">출력 채널(유튜브·X·인스타·틱톡)은 아직 개설 전이다. 개설되면 여기에 연결되고, 24시간 라이브는 유튜브로 송출한다.</p><div class="pix" style="color:var(--muted)">YOUTUBE · X · INSTAGRAM · TIKTOK · 준비 중</div></section>
+  </div>
 
   <section class="panel" id="about"><h2>소개</h2>
     <p class="note">우측통행은 AI 앵커 3명이 24시간 뉴스를 읽는 가상 방송국이다. 헤드라인은 실제 보도(지금은 매일신문)이고 각 항목은 출처 링크를 단다. 해설과 농담은 풍자이지 보도가 아니다. 대사마다 <span class="kind 사실">사실</span> <span class="kind 주장">주장</span> <span class="kind 의견">의견</span> <span class="kind 농담">농담</span> 표시를 붙여, 무엇이 확인된 것이고 무엇이 우리 생각인지 가른다. 앵커는 가상 인물이며 실존 인물을 흉내 내지 않는다. 정정 요청은 데스크에 묻기로.</p>
@@ -160,19 +169,28 @@ async function refresh(){
   if (now.station) { $('#stName').textContent = now.station.name; $('#stSub').textContent = now.station.sub; }
   $('#progName').textContent = now.on_now.name;
   const gb = $('#guideBody'); gb.replaceChildren();
-  now.schedule.forEach(s => { const st = s.name===now.on_now.name ? 'ON NOW' : s.name===now.up_next.name ? 'UP NEXT' : '';
-    gb.append(el('tr',{class: st==='ON NOW'?'now':''}, el('td',{class:'t',text:String(s.start).padStart(2,'0')+':00–'+String(s.end).padStart(2,'0')+':00'}), el('td',{text:s.name}), el('td',{class:'pix',text:st}))); });
+  const WD = ['월','화','수','목','금','토','일'];
+  now.schedule.forEach(s => { const isNow = s.start===now.on_now.start && s.name===now.on_now.name; const isNext = s.start===now.up_next.start && s.name===now.up_next.name; const st = isNow ? 'ON NOW' : isNext ? 'UP NEXT' : '';
+    gb.append(el('tr',{class: isNow?'now':''}, el('td',{class:'t',text:s.start+'–'+s.end}), el('td',{text:s.name + (s.wday!=null ? ' ('+WD[s.wday]+'요일)' : '')}), el('td',{class:'pix',text:st}))); });
+  $('#qNote').textContent = now.questions_pending ? `다음 방송에서 읽을 시청자 질문 ${now.questions_pending}개 대기` : '';
   const pl = $('#progList'); pl.replaceChildren();
   if (now.cast) cast = now.cast.map(c => ({...c}));
-  Object.entries(now.programs||{}).forEach(([name,p]) => { const h = el('div',{class:'hosts'}); (p.hosts||[]).forEach(id => h.append(portrait(id), el('span',{class:'lab',text:castOf(id).name}))); pl.append(el('div',{class:'show'+(name===now.on_now.name?' now':'')}, el('h3',{text:name+(name===now.on_now.name?' · ON NOW':'')}), el('div',{style:'font-size:16px',text:p.desc}), h)); });
+  Object.entries(now.programs||{}).forEach(([name,p]) => { const h = el('div',{class:'hosts'}); (p.hosts||[]).forEach(id => h.append(portrait(id), el('span',{class:'lab',text:castOf(id).name}))); pl.append(el('div',{class:'show'+(name===now.on_now.name?' now':'')}, el('h3',{text:name+(name===now.on_now.name?' · ON NOW':'')}), el('div',{class:'pix',style:'color:var(--amber)',text:p.time||''}), el('div',{style:'font-size:16px',text:p.desc}), h)); });
   const a = now.autopilot; $('#autoNote').textContent = `자동 편성: ${a.interval_min}분마다 새 영상이 있으면 대본 생성 · 마지막 ${a.last_run||'—'} · ${a.last_result}` + (a.running?' · 생성 중…':'');
-  const rl = $('#replayList'); rl.replaceChildren();
-  if (!shows.length) rl.append(el('p',{class:'note',text:'아직 방송이 없다. 자동 편성이 첫 대본을 쓰는 중이면 1~2분 뒤 새로 고침.'}));
-  shows.forEach(s => { const b = el('button',{type:'button',class:'small',text:'보기'}); b.onclick = () => openShow(s);
-    rl.append(el('div',{class:'r'}, el('span',{style:'min-width:0;flex:1 1 260px'}, el('span',{class:'when',text:new Date(s.createdAt).toLocaleString('ko-KR',{...KST,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+'  '}), el('b',{text:(s.result.title||'')+' '}), el('span',{class:'lab',text:(s.program||'')+' · '+s.result.segments.length+'줄'+(s.audio? (s.audio.ready?' · 음성 O':' · 음성 '+s.audio.note):'')})), b)); });
+  renderReplays();
   try { const h = await (await fetch('/health')).json(); $('#ttsNote').textContent = h.tts ? 'AI 음성(Gemini)' : '서버 음성 키 없음 → 브라우저 음성'; } catch {}
   const tk = shows[0]?.result?.ticker; if (tk && tk.length) $('#roll').textContent = tk.join('   ·   ');
 }
+function renderReplays(){
+  const q = ($('#rsearch').value||'').trim();
+  const rl = $('#replayList'); rl.replaceChildren();
+  const list = shows.filter(s => !q || JSON.stringify(s.result).includes(q) || (s.program||'').includes(q));
+  if (!list.length) rl.append(el('p',{class:'note',text: shows.length ? '검색 결과 없음' : '아직 방송이 없다. 자동 편성이 첫 대본을 쓰는 중이면 1~2분 뒤 새로 고침.'}));
+  list.forEach(s => { const b = el('button',{type:'button',class:'small',text:'보기'}); b.onclick = () => openShow(s);
+    rl.append(el('div',{class:'r'}, el('span',{style:'min-width:0;flex:1 1 260px'}, el('span',{class:'when',text:new Date(s.createdAt).toLocaleString('ko-KR',{...KST,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+'  '}), el('b',{text:(s.result.title||'')+' '}), el('span',{class:'lab',text:(s.program||'')+' · '+s.result.segments.length+'줄'+(s.audio? (s.audio.ready?' · 음성 O':' · 음성 '+s.audio.note):'')})), b)); });
+}
+$('#rsearch').addEventListener('input', renderReplays);
+$('#fs').onclick = () => { const sc = document.querySelector('.screen'); try { (sc.requestFullscreen ? sc.requestFullscreen() : Promise.reject()).catch(()=>{}); } catch {} };
 let opened = null;
 function openShow(s){
   if (opened) opened.remove();
@@ -233,7 +251,7 @@ $('#tvOn').onclick = turnOn; $('#tvOff').onclick = turnOff; $('#skip').onclick =
 // ---------- ask ----------
 $('#askBtn').onclick = async () => {
   const q = $('#askIn').value.trim(); if (!q) return; $('#askBtn').disabled = true; const out = $('#askOut'); out.replaceChildren(el('p',{class:'note',text:'데스크에 전달 중…'}));
-  try { const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})}); if (!r.ok) throw new Error((await r.json()).detail||'실패'); const d = await r.json(); out.replaceChildren();
+  try { const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q, name: $('#askName').value.trim(), kind: (document.querySelector('input[name=akind]:checked')||{}).value||'question', on_air: true})}); if (!r.ok) throw new Error((await r.json()).detail||'실패'); const d = await r.json(); out.replaceChildren(); if (d.queued) out.append(el('p',{class:'note',text:'접수됨. 다음 저녁·심야·토크 방송에서 읽힐 수 있다.'}));
     for (const g of d.segments) { const av = portrait(g.speaker); av.className='av'; out.append(el('div',{class:'seg'}, av, el('div',{}, el('span',{class:'who',text:castOf(g.speaker).name}), el('span',{class:'kind '+(g.kind||'의견'),text:g.kind||'의견'}), el('div',{text:g.line}))));
       if (on) { const c = castOf(g.speaker); speaking = g.speaker; $('#lowName').textContent = c.name; $('#lowLine').textContent = g.line; await say(g.line, c); speaking = null; } }
   } catch (e) { out.replaceChildren(el('p',{class:'note',text:e.message||'실패'})); } finally { $('#askBtn').disabled = false; }

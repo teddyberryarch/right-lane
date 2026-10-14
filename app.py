@@ -134,11 +134,13 @@ class ScriptReq(BaseModel):
     note: str = ""
 
 PROG = {
+    "late": "심야 방송. 느슨하고 가볍게, 농담 비중 높게. 그래도 사실/주장 구분은 지킨다.",
+    "talk": "토크쇼. 서보라가 진행자, 한직진이 게스트. 서보라가 오늘 한직진이 한 센 말을 다시 캐묻고 한직진이 근거를 댄다. 팩트-1은 끼어들기만.",
     "daily": "일상 뉴스. 담백하고 빠르게. 이슈마다 사실→우리 의견 순. 농담은 가볍게 1~2개.",
     "sig": "간판 프로그램 \"웃긴 센 말\". 이슈 하나를 골라 끝까지 웃기게 조진다. 농담 비중 높게, 펀치라인은 한직진·서보라 티키타카로. 그래도 사실/주장 구분은 지킨다.",
     "fact": "팩트 데스크. 팩트-1이 주도. 이슈 속 주장을 하나씩 꺼내 출처와 대조하고 \"확인/미확인/반박\"으로 판정. 직진·보라는 짧게 반응.",
 }
-PROG_NAME = {"daily": "일상 뉴스", "sig": "웃긴 센 말", "fact": "팩트 데스크"}
+PROG_NAME = {"daily": "일상 뉴스", "sig": "웃긴 센 말", "fact": "팩트 데스크", "late": "심야 직진", "talk": "늦은 직진"}
 LEN = {"shorts": "쇼츠 60초: 대사 8~12줄, 한 줄은 25자 안팎. 첫 줄이 훅.", "five": "5분 롱폼: 대사 35~50줄. 오프닝→이슈별 블록→클로징."}
 
 def build_prompt(req: ScriptReq, material: list[dict]):
@@ -228,11 +230,14 @@ VOICES = json.loads(os.environ.get("VOICES_JSON") or json.dumps({
     "bora": ["Leda", "밝은 목소리의 한국 뉴스 공동 앵커. 보통 말하는 속도로 자연스럽게, 살짝 웃음기 있게"],
     "fact": ["Iapetus", "담담한 남성 아나운서. 보통 속도로 또박또박, 감정 없이 사실을 읽듯이"]}))
 PROGRAMS = {
-    "아침 직진": {"desc": "밤사이 매일신문이 다룬 이슈 3개를 60초로. 출근길용.", "hosts": ["jikjin", "bora"]},
-    "점심 속보": {"desc": "오전 가장 뜨거운 이슈 2개. 한직진이 판정하고 서보라가 받는다.", "hosts": ["jikjin", "bora"]},
-    "저녁 뉴스": {"desc": "오늘 이슈 4개, 5분 정리. 하루의 메인 뉴스.", "hosts": ["jikjin", "bora", "fact"]},
-    "팩트 데스크": {"desc": "유튜브에 도는 주장을 팩트-1이 기사와 대조해 확인·미확인·반박으로 판정.", "hosts": ["fact", "jikjin"]},
-    "웃긴 센 말": {"desc": "주 1회 간판. 이번 주 최악 하나를 끝까지 웃기게. (준비 중)", "hosts": ["jikjin", "bora"]},
+    "심야 직진": {"time": "00:00–06:00", "desc": "느슨한 심야. 밤에 올라온 이슈를 농담 섞어 가볍게.", "hosts": ["bora", "jikjin"]},
+    "아침 직진": {"time": "06:00–09:00", "desc": "밤사이 매일신문이 다룬 이슈 3개를 60초로. 출근길용.", "hosts": ["jikjin", "bora"]},
+    "낮 직진": {"time": "09:00–17:00", "desc": "낮 동안 올라오는 이슈를 받는 대로. 한직진 판정, 서보라 리액션.", "hosts": ["jikjin", "bora"]},
+    "팩트 데스크": {"time": "12:00–12:15", "desc": "유튜브에 도는 주장을 팩트-1이 기사와 대조해 확인·미확인·반박으로 판정.", "hosts": ["fact", "jikjin"]},
+    "저녁 직진": {"time": "17:00–21:00", "desc": "오늘 이슈 4개, 5분 정리. 하루의 메인 뉴스. 시청자 질문도 여기서 읽는다.", "hosts": ["jikjin", "bora", "fact"]},
+    "웃긴 센 말": {"time": "금 20:00–20:30", "desc": "주 1회 간판. 이번 주 최악 하나를 끝까지 웃기게 조진다.", "hosts": ["jikjin", "bora"]},
+    "늦은 직진": {"time": "21:00–21:30", "desc": "서보라가 진행하는 토크. 한직진을 앉혀놓고 오늘 제일 센 말을 다시 따진다.", "hosts": ["bora", "jikjin"]},
+    "늦은 판": {"time": "21:30–24:00", "desc": "하루 마감 뉴스. 내일 볼 것까지.", "hosts": ["jikjin", "fact"]},
 }
 def tts_segment(text, speaker):
     key = os.environ.get("GEMINI_API_KEY")
@@ -284,23 +289,40 @@ def api_synth(sid: str, force: bool = False):
     synth_async(sh); return {"ok": True}
 
 # ---------- 편성 ----------
-SCHEDULE = [  # (시작시, 끝시, prog, length, name, 이슈 수)
-    (6, 11, "daily", "shorts", "아침 직진", 3),
-    (11, 17, "daily", "shorts", "점심 속보", 2),
-    (17, 23, "daily", "five", "저녁 뉴스", 4),
-    (23, 30, "fact", "shorts", "팩트 데스크", 2),
+# (시작 "HH:MM", 끝 "HH:MM", prog, length, 이름, 이슈 수, 요일(None=매일, 4=금))
+SCHEDULE = [
+    ("00:00", "06:00", "late",  "shorts", "심야 직진", 2, None),
+    ("06:00", "09:00", "daily", "shorts", "아침 직진", 3, None),
+    ("09:00", "12:00", "daily", "shorts", "낮 직진", 2, None),
+    ("12:00", "12:15", "fact",  "shorts", "팩트 데스크", 2, None),
+    ("12:15", "17:00", "daily", "shorts", "낮 직진", 2, None),
+    ("17:00", "20:00", "daily", "five",   "저녁 직진", 4, None),
+    ("20:00", "20:30", "sig",   "five",   "웃긴 센 말", 1, 4),
+    ("20:00", "21:00", "daily", "five",   "저녁 직진", 4, None),
+    ("21:00", "21:30", "talk",  "shorts", "늦은 직진", 2, None),
+    ("21:30", "24:00", "daily", "shorts", "늦은 판", 3, None),
 ]
-def kst_hour():
-    return (time.gmtime().tm_hour + 9) % 24
-def slot_for(hour=None):
-    h = kst_hour() if hour is None else hour
-    hh = h if h >= 6 else h + 24
-    for a, b, prog, length, name, n in SCHEDULE:
-        if a <= hh < b: return {"prog": prog, "length": length, "name": name, "n": n, "start": a % 24, "end": b % 24}
-    return {"prog": "daily", "length": "shorts", "name": "일상 뉴스", "n": 2, "start": 0, "end": 24}
+def _m(t): h, m = t.split(":"); return int(h) * 60 + int(m)
+def kst_now():
+    t = time.gmtime(time.time() + 9 * 3600); return t.tm_hour * 60 + t.tm_min, (t.tm_wday)  # 월=0
+def slot_at(minute, wday):
+    for a, b, prog, length, name, n, wd in SCHEDULE:
+        if wd is not None and wd != wday: continue
+        if _m(a) <= minute < _m(b): return {"prog": prog, "length": length, "name": name, "n": n, "start": a, "end": b}
+    return {"prog": "daily", "length": "shorts", "name": "일상 뉴스", "n": 2, "start": "00:00", "end": "24:00"}
+def slot_for():
+    m, wd = kst_now(); return slot_at(m, wd)
 def next_slot():
-    cur = slot_for(); return slot_for(cur["end"] % 24)
+    m, wd = kst_now(); cur = slot_at(m, wd); nm = _m(cur["end"]) % 1440
+    return slot_at(nm, wd if _m(cur["end"]) < 1440 else (wday_next := (wd + 1) % 7))
+def seconds_to_next_boundary():
+    m, wd = kst_now(); sec = time.gmtime(time.time() + 9 * 3600).tm_sec
+    starts = sorted({_m(a) for a, *_ in SCHEDULE} | {1440})
+    nxt = next((x for x in starts if x > m), 1440)
+    return max(60, (nxt - m) * 60 - sec + 5)
 
+Q_FILE = DATA / "questions.json"
+questions = load_json(Q_FILE, [])
 USED_FILE = DATA / "used.json"
 used = load_json(USED_FILE, {})
 AUTO_MIN = int(os.environ.get("AUTO_INTERVAL_MIN", "60"))
@@ -325,8 +347,12 @@ def autopilot_once():
         if not os.environ.get("ANTHROPIC_API_KEY"): auto_state["last_result"] = "API 키 없음"; return
         slot = slot_for(); items = pick_items(slot["n"])
         if not items: auto_state["last_result"] = "새 영상 없음"; return
-        req = ScriptReq(items=items, prog=slot["prog"], length=slot["length"], note=f"프로그램명 {slot['name']}. 오프닝에 프로그램명을 한 번 말한다.")
+        pend = [q for q in questions if not q.get("read")][:2] if slot["prog"] in ("daily", "talk", "late") else []
+        qtxt = ("\n시청자 질문 코너를 마지막에 넣는다(보낸 이름을 부르고 2~3줄로 답한다): " + " / ".join(f"[{q.get('name') or '익명'}] {q['text']}" for q in pend)) if pend else ""
+        req = ScriptReq(items=items, prog=slot["prog"], length=slot["length"], note=f"프로그램명 {slot['name']}. 오프닝에 프로그램명을 한 번 말한다.{qtxt}")
         show = api_script(req); show["program"] = slot["name"]; show["auto"] = True
+        for q in pend: q["read"] = show["id"]
+        if pend: save_json(Q_FILE, questions)
         save_json(SHOWS_FILE, shows)
         for it in items: used[it.vid] = time.time()
         save_json(USED_FILE, used)
@@ -341,7 +367,7 @@ def autopilot_loop():
     while True:
         try: autopilot_once()
         except Exception: pass
-        time.sleep(AUTO_MIN * 60)
+        time.sleep(min(AUTO_MIN * 60, seconds_to_next_boundary()))
 if os.environ.get("AUTOPILOT", "1") == "1":
     threading.Thread(target=autopilot_loop, daemon=True).start()
 
@@ -349,7 +375,8 @@ if os.environ.get("AUTOPILOT", "1") == "1":
 def api_now():
     slot = slot_for(); nxt = next_slot()
     return {"kst": time.strftime("%H:%M", time.gmtime(time.time() + 9 * 3600)), "on_now": slot, "up_next": nxt,
-            "schedule": [{"start": a % 24, "end": b % 24, "name": nm, "prog": p} for a, b, p, l, nm, n in SCHEDULE],
+            "schedule": [{"start": a, "end": b, "name": nm, "prog": p, "wday": wd} for a, b, p, l, nm, n, wd in SCHEDULE],
+            "questions_pending": len([q for q in questions if not q.get("read")]),
             "autopilot": {**auto_state, "interval_min": AUTO_MIN}, "shows": shows[:30], "station": settings["station"], "programs": PROGRAMS, "cast": settings["cast"]}
 
 @app.post("/api/autopilot/run")
@@ -358,6 +385,9 @@ def api_auto_run():
 
 class AskReq(BaseModel):
     q: str
+    name: str = ""
+    kind: str = "question"  # question | letter
+    on_air: bool = True
 @app.post("/api/ask")
 def api_ask(req: AskReq):
     q = req.q.strip()[:300]
@@ -372,7 +402,15 @@ def api_ask(req: AskReq):
 [시청자 질문] {q}
 [출력] JSON 하나만: {{"segments":[{{"speaker":"jikjin|bora|fact","line":"대사","kind":"사실|주장|의견|농담","source":""}}]}} 대사 2~4줄."""
     res = call_claude(prompt, os.environ.get("ASK_MODEL", "claude-haiku-5-5"))
-    return {"q": q, "segments": res.get("segments", [])}
+    if req.on_air:
+        questions.insert(0, {"id": str(int(time.time() * 1000)), "text": q, "name": req.name.strip()[:20], "kind": req.kind, "at": int(time.time() * 1000), "read": None}); del questions[200:]; save_json(Q_FILE, questions)
+    return {"q": q, "segments": res.get("segments", []), "queued": req.on_air}
+
+@app.get("/api/today")
+def api_today():
+    day = time.strftime("%Y-%m-%d", time.gmtime(time.time() + 9 * 3600))
+    todays = [s for s in shows if time.strftime("%Y-%m-%d", time.gmtime(s["createdAt"] / 1000 + 9 * 3600)) == day]
+    return {"date": day, "station": settings["station"]["name"], "shows": [{"time": time.strftime("%H:%M", time.gmtime(s["createdAt"] / 1000 + 9 * 3600)), "program": s.get("program"), "title": s["result"].get("title"), "issues": s["result"].get("issues_used", []), "sources": sorted({g["source"] for g in s["result"]["segments"] if g.get("source", "").startswith("http")})} for s in todays]}
 
 @app.get("/api/shows")
 def api_shows(): return shows
