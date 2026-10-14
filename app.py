@@ -20,8 +20,10 @@ def kst(ts=None): return time.gmtime((ts if ts is not None else time.time()) + K
 def kst_str(fmt="%Y-%m-%d %H:%M:%S", ts=None): return time.strftime(fmt, kst(ts))
 
 # ---------- 입력 채널 ----------
+# kind: news(언론, 기사 원문 있음) / youtuber(개인 채널 — 제목·발언은 '주장'으로 취급)
 SOURCES = json.loads(os.environ.get("SOURCES_JSON") or json.dumps([
-    {"id": "maeil", "name": "매일신문", "youtube_channel_id": "UCGrraKQiTF-ml0KqPQ8mrUA", "rss": "https://www.imaeil.com/rss"},
+    {"id": "maeil", "name": "매일신문", "kind": "news", "youtube_channel_id": "UCGrraKQiTF-ml0KqPQ8mrUA", "rss": "https://www.imaeil.com/rss"},
+    {"id": "chamj", "name": "차명진TV", "kind": "youtuber", "youtube_channel_id": "UC-HXN9uJjNoEQP6NuSsvmyA"},
 ]))
 CATS = {  # 기사 분류 키워드 (프로그램별 재료 고르기)
     "경제": ["코스피", "코스닥", "주가", "환율", "금리", "증시", "삼성전자", "반도체", "부동산", "물가", "수출", "실적", "투자"],
@@ -196,22 +198,27 @@ def transcript(vid):
         return " ".join(s.text for s in seg)[:6000], "자막"
     except Exception as ex: return "", type(ex).__name__
 def all_sources():
-    out = []
+    out = []; pool = []
     for s in SOURCES:
-        vids = cached("yt:" + s["id"], 600, lambda: yt_feed(s["youtube_channel_id"])) if s.get("youtube_channel_id") else []
-        arts = cached("rss:" + s["id"], 600, lambda: site_rss(s["rss"])) if s.get("rss") else []
+        if s.get("rss"):
+            arts = cached("rss:" + s["id"], 600, lambda u=s["rss"]: site_rss(u)); pool += arts
+        else: arts = []
+        out.append({"id": s["id"], "name": s["name"], "kind": s.get("kind", "news"), "videos": [], "articles": arts})
+    for s, o in zip(SOURCES, out):
+        vids = cached("yt:" + s["id"], 600, lambda c=s["youtube_channel_id"]: yt_feed(c)) if s.get("youtube_channel_id") else []
         for v in vids:
+            v["source"] = s["name"]; v["kind"] = s.get("kind", "news")
             kw = keywords(v["title"]); best, score = None, 0
-            for a in arts:
+            for a in pool:
                 sc = len(kw & keywords(a["title"]))
                 if sc > score: score, best = sc, a
             v["article"] = best if score >= 2 else None
-        out.append({"id": s["id"], "name": s["name"], "videos": vids, "articles": arts})
+        o["videos"] = vids
     return out
 @app.get("/api/sources")
 def api_sources():
     src = all_sources()
-    return {"sources": [{"id": s["id"], "name": s["name"], "videos": s["videos"], "articles_total": len(s["articles"])} for s in src], "fetched_at": kst_str()}
+    return {"sources": [{"id": s["id"], "name": s["name"], "kind": s["kind"], "videos": s["videos"], "articles_total": len(s["articles"])} for s in src], "fetched_at": kst_str()}
 def weather_data():
     def one(name, lat, lon):
         try:
@@ -225,6 +232,8 @@ def api_weather(): return weather_data()
 # ---------- 대본 ----------
 class Item(BaseModel):
     title: str
+    source: str | None = None
+    kind: str | None = None
     vid: str | None = None
     link: str | None = None
     article_link: str | None = None
@@ -241,7 +250,7 @@ def build_prompt(req: ScriptReq, material, extra=""):
     hosts = PROGRAMS.get(req.program or PROG_NAME.get(req.prog, ""), {}).get("hosts")
     cast = [c for c in st["cast"] if not hosts or c["id"] in hosts or c["id"] == "fact"]
     cast_txt = "\n".join(f"- {c['name']} (id:{c['id']}, {c['role']}): {c['voice']} 입버릇 {c['catch']}" for c in cast)
-    mat = "\n".join(f"### 이슈: {m['title']}\n- 유튜브: {m.get('link') or ''}\n- 자막: {m['transcript'] or '(없음: ' + m['transcript_note'] + ')'}\n- 기사: {m.get('article_title') or '(매칭 기사 없음)'} {m.get('article_link') or ''}\n- 기사 본문: {m['article'] or '(없음)'}" for m in material) or "(이 프로그램은 뉴스 재료를 쓰지 않는다)"
+    mat = "\n".join(f"### 이슈: {m['title']}\n- 채널: {m.get('source') or ''}{' (유튜버 개인 채널 — 제목·발언은 전부 주장으로 취급, 기사로 확인된 것만 사실)' if m.get('kind')=='youtuber' else ''}\n- 유튜브: {m.get('link') or ''}\n- 자막: {m['transcript'] or '(없음: ' + m['transcript_note'] + ')'}\n- 기사: {m.get('article_title') or '(매칭 기사 없음)'} {m.get('article_link') or ''}\n- 기사 본문: {m['article'] or '(없음)'}" for m in material) or "(이 프로그램은 뉴스 재료를 쓰지 않는다)"
     return f"""너는 가상 뉴스 방송국 "{st['station']['name']}"의 작가다. 아래 스탠스와 톤으로, 이 프로그램의 작법대로 대본을 쓴다. 오늘은 {kst_str('%Y년 %m월 %d일')}이다.
 
 [출연진 — 이 프로그램에 나오는 사람만 쓴다. speaker는 id로]
@@ -296,7 +305,7 @@ def make_show(req: ScriptReq):
     for it in req.items[:6]:
         tr, note = transcript(it.vid) if it.vid else ("", "영상 아님")
         art = article_body(it.article_link) if it.article_link else ""
-        material.append({"title": it.title, "link": it.link, "transcript": tr, "transcript_note": note, "article": art, "article_title": it.article_title, "article_link": it.article_link})
+        material.append({"title": it.title, "source": it.source, "kind": it.kind, "link": it.link, "transcript": tr, "transcript_note": note, "article": art, "article_title": it.article_title, "article_link": it.article_link})
     extra = ""
     if req.prog == "weather":
         extra = "\n[관측·예보 데이터 (Open-Meteo, 서울 시간)]\n" + json.dumps(weather_data(), ensure_ascii=False)[:3000] + "\n"
@@ -413,11 +422,11 @@ def pick_items(slot):
                     items.append(Item(title=a["title"], link=a["link"], article_link=a["link"], article_title=a["title"]))
                     if len(items) >= n: break
         return items
-    for s in src:
-        for v in s["videos"]:
-            if v["vid"] in used: continue
-            items.append(Item(title=v["title"], vid=v["vid"], link=v["link"], article_link=(v.get("article") or {}).get("link"), article_title=(v.get("article") or {}).get("title")))
-            if len(items) >= n: break
+    queues = [[v for v in s["videos"] if v["vid"] not in used] for s in src]
+    while len(items) < n and any(queues):
+        for q in queues:
+            if q and len(items) < n:
+                v = q.pop(0); items.append(Item(title=v["title"], source=v.get("source"), kind=v.get("kind"), vid=v["vid"], link=v["link"], article_link=(v.get("article") or {}).get("link"), article_title=(v.get("article") or {}).get("title")))
     if prog == "rabbit" and not items:
         for s in src:
             for v in s["videos"][:3]: items.append(Item(title=v["title"], vid=v["vid"], link=v["link"], article_link=(v.get("article") or {}).get("link"), article_title=(v.get("article") or {}).get("title")))
