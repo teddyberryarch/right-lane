@@ -3,9 +3,9 @@
 """
 import os, re, json, html, time, threading
 from pathlib import Path
-import feedparser, requests
+import base64, struct, feedparser, requests
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -138,6 +138,7 @@ PROG = {
     "sig": "간판 프로그램 \"웃긴 센 말\". 이슈 하나를 골라 끝까지 웃기게 조진다. 농담 비중 높게, 펀치라인은 한직진·서보라 티키타카로. 그래도 사실/주장 구분은 지킨다.",
     "fact": "팩트 데스크. 팩트-1이 주도. 이슈 속 주장을 하나씩 꺼내 출처와 대조하고 \"확인/미확인/반박\"으로 판정. 직진·보라는 짧게 반응.",
 }
+PROG_NAME = {"daily": "일상 뉴스", "sig": "웃긴 센 말", "fact": "팩트 데스크"}
 LEN = {"shorts": "쇼츠 60초: 대사 8~12줄, 한 줄은 25자 안팎. 첫 줄이 훅.", "five": "5분 롱폼: 대사 35~50줄. 오프닝→이슈별 블록→클로징."}
 
 def build_prompt(req: ScriptReq, material: list[dict]):
@@ -206,9 +207,152 @@ def api_script(req: ScriptReq):
     if not segs: raise HTTPException(502, "대본이 비었다. 다시 눌러줘.")
     res["segments"] = segs
     show = {"id": str(int(time.time() * 1000)), "createdAt": int(time.time() * 1000), "input": req.model_dump(), "result": res,
-            "material": [{"title": m["title"], "transcript": bool(m["transcript"]), "transcript_note": m["transcript_note"], "article": bool(m["article"])} for m in material], "model": model}
+            "material": [{"title": m["title"], "transcript": bool(m["transcript"]), "transcript_note": m["transcript_note"], "article": bool(m["article"])} for m in material], "model": model, "program": PROG_NAME.get(req.prog, req.prog), "auto": False}
+    show["audio"] = {"ready": False, "note": "생성 중" if os.environ.get("GEMINI_API_KEY") else "GEMINI_API_KEY 없음", "count": 0}
     shows.insert(0, show); del shows[60:]; save_json(SHOWS_FILE, shows)
+    synth_async(show)
     return show
+
+# ---------- 음성 (Gemini TTS = NotebookLM 계열) ----------
+AUDIO = DATA / "audio"; AUDIO.mkdir(parents=True, exist_ok=True)
+TTS_MODEL = os.environ.get("TTS_MODEL", "gemini-2.5-flash-preview-tts")
+VOICES = {"jikjin": ("Charon", "단호하고 낮은 뉴스 앵커 톤, 빠르고 또렷하게"), "bora": ("Leda", "밝고 장난기 있는 공동 앵커, 어이없어하는 뉘앙스를 살려서"), "fact": ("Iapetus", "감정 없는 기계적 톤, 또박또박 천천히")}
+def tts_segment(text, speaker):
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key: return None, "GEMINI_API_KEY 없음"
+    voice, style = VOICES.get(speaker, VOICES["jikjin"])
+    body = {"contents": [{"parts": [{"text": f"{style}. 다음 대사를 한국어로 읽어라:\n{text}"}]}],
+            "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+    for attempt in range(4):
+        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{TTS_MODEL}:generateContent", params={"key": key}, json=body, timeout=90)
+        if r.status_code == 429: time.sleep(12 * (attempt + 1)); continue
+        if r.status_code != 200: return None, f"HTTP {r.status_code} {r.text[:120]}"
+        try:
+            part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+            pcm = base64.b64decode(part["data"]); mime = part.get("mimeType", "audio/L16;rate=24000")
+            rate = int(re.search(r"rate=(\d+)", mime).group(1)) if "rate=" in mime else 24000
+            hdr = b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) + b"data" + struct.pack("<I", len(pcm))
+            return hdr + pcm, "ok"
+        except Exception as ex:
+            return None, f"파싱 실패 {type(ex).__name__}"
+    return None, "429 반복"
+
+def synth_show(show):
+    sid = show["id"]; d = AUDIO / sid; d.mkdir(exist_ok=True); errs = []
+    for i, seg in enumerate(show["result"]["segments"]):
+        f = d / f"{i}.wav"
+        if f.exists(): continue
+        wav, note = tts_segment(seg["line"], seg["speaker"])
+        if wav: f.write_bytes(wav)
+        else: errs.append(note); 
+        if note != "ok" and "GEMINI_API_KEY" in note: break
+    show["audio"] = {"ready": not errs, "note": (errs[0] if errs else "ok"), "count": len(list(d.glob("*.wav")))}
+    save_json(SHOWS_FILE, shows)
+
+def synth_async(show): threading.Thread(target=synth_show, args=(show,), daemon=True).start()
+
+@app.get("/api/audio/{sid}/{i}.wav")
+def api_audio(sid: str, i: int):
+    f = AUDIO / sid / f"{i}.wav"
+    if not f.exists(): raise HTTPException(404, "no audio")
+    return Response(f.read_bytes(), media_type="audio/wav", headers={"Cache-Control": "public, max-age=86400"})
+
+@app.post("/api/shows/{sid}/synth")
+def api_synth(sid: str):
+    sh = next((x for x in shows if x["id"] == sid), None)
+    if not sh: raise HTTPException(404, "없음")
+    synth_async(sh); return {"ok": True}
+
+# ---------- 편성 ----------
+SCHEDULE = [  # (시작시, 끝시, prog, length, name, 이슈 수)
+    (6, 11, "daily", "shorts", "아침 직진", 3),
+    (11, 17, "daily", "shorts", "점심 속보", 2),
+    (17, 23, "daily", "five", "저녁 뉴스", 4),
+    (23, 30, "fact", "shorts", "팩트 데스크", 2),
+]
+def kst_hour():
+    return (time.gmtime().tm_hour + 9) % 24
+def slot_for(hour=None):
+    h = kst_hour() if hour is None else hour
+    hh = h if h >= 6 else h + 24
+    for a, b, prog, length, name, n in SCHEDULE:
+        if a <= hh < b: return {"prog": prog, "length": length, "name": name, "n": n, "start": a % 24, "end": b % 24}
+    return {"prog": "daily", "length": "shorts", "name": "일상 뉴스", "n": 2, "start": 0, "end": 24}
+def next_slot():
+    cur = slot_for(); return slot_for(cur["end"] % 24)
+
+USED_FILE = DATA / "used.json"
+used = load_json(USED_FILE, {})
+AUTO_MIN = int(os.environ.get("AUTO_INTERVAL_MIN", "60"))
+auto_state = {"last_run": None, "last_result": "아직 안 돌았음", "running": False}
+
+def pick_items(n):
+    src = api_sources()["sources"]
+    cutoff = time.time() - 36 * 3600
+    for k in [k for k, v in used.items() if v < cutoff]: used.pop(k, None)
+    items = []
+    for s in src:
+        for v in s["videos"]:
+            if v["vid"] in used: continue
+            items.append(Item(title=v["title"], vid=v["vid"], link=v["link"], article_link=(v.get("article") or {}).get("link"), article_title=(v.get("article") or {}).get("title")))
+            if len(items) >= n: break
+    return items
+
+def autopilot_once():
+    if auto_state["running"]: return
+    auto_state["running"] = True
+    try:
+        if not os.environ.get("ANTHROPIC_API_KEY"): auto_state["last_result"] = "API 키 없음"; return
+        slot = slot_for(); items = pick_items(slot["n"])
+        if not items: auto_state["last_result"] = "새 영상 없음"; return
+        req = ScriptReq(items=items, prog=slot["prog"], length=slot["length"], note=f"프로그램명 {slot['name']}. 오프닝에 프로그램명을 한 번 말한다.")
+        show = api_script(req); show["program"] = slot["name"]; show["auto"] = True
+        save_json(SHOWS_FILE, shows)
+        for it in items: used[it.vid] = time.time()
+        save_json(USED_FILE, used)
+        auto_state["last_result"] = f"{slot['name']} 생성: {show['result'].get('title','')}"
+    except Exception as ex:
+        auto_state["last_result"] = f"실패: {type(ex).__name__} {str(ex)[:120]}"
+    finally:
+        auto_state["last_run"] = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time() + 9 * 3600)); auto_state["running"] = False
+
+def autopilot_loop():
+    time.sleep(20)
+    while True:
+        try: autopilot_once()
+        except Exception: pass
+        time.sleep(AUTO_MIN * 60)
+if os.environ.get("AUTOPILOT", "1") == "1":
+    threading.Thread(target=autopilot_loop, daemon=True).start()
+
+@app.get("/api/now")
+def api_now():
+    slot = slot_for(); nxt = next_slot()
+    return {"kst": time.strftime("%H:%M", time.gmtime(time.time() + 9 * 3600)), "on_now": slot, "up_next": nxt,
+            "schedule": [{"start": a % 24, "end": b % 24, "name": nm, "prog": p} for a, b, p, l, nm, n in SCHEDULE],
+            "autopilot": {**auto_state, "interval_min": AUTO_MIN}, "shows": shows[:30], "station": settings["station"]}
+
+@app.post("/api/autopilot/run")
+def api_auto_run():
+    threading.Thread(target=autopilot_once, daemon=True).start(); return {"ok": True}
+
+class AskReq(BaseModel):
+    q: str
+@app.post("/api/ask")
+def api_ask(req: AskReq):
+    q = req.q.strip()[:300]
+    if not q: raise HTTPException(400, "질문이 비었다.")
+    st = settings
+    cast_txt = "\n".join(f"- {c['name']} (id:{c['id']}, {c['role']}): {c['voice']}" for c in st["cast"])
+    recent = "\n".join(f"- {s['result'].get('title','')}: " + " / ".join(x["line"] for x in s["result"]["segments"][:4]) for s in shows[:3])
+    prompt = f"""너는 가상 뉴스 방송국 "{st['station']['name']}"의 작가다. 시청자가 데스크에 보낸 질문에 앵커들이 짧게 답한다.
+[출연진]\n{cast_txt}\n[스탠스]\n{st['stance']}\n[톤]\n{st['tone']}
+[고정 규칙] 사실을 지어내지 않는다. 모르면 팩트-1이 "확인된 바 없음"이라고 한다. 실존 인물 비하·확인 안 된 범죄 단정·집단 비하 금지. 욕설 순화.
+[최근 방송]\n{recent or '(없음)'}
+[시청자 질문] {q}
+[출력] JSON 하나만: {{"segments":[{{"speaker":"jikjin|bora|fact","line":"대사","kind":"사실|주장|의견|농담","source":""}}]}} 대사 2~4줄."""
+    res = call_claude(prompt, os.environ.get("ASK_MODEL", "claude-haiku-5-5"))
+    return {"q": q, "segments": res.get("segments", [])}
 
 @app.get("/api/shows")
 def api_shows(): return shows
@@ -234,8 +378,10 @@ def api_settings_put(req: SettingsReq):
     save_json(SETTINGS_FILE, settings); return settings
 
 @app.get("/health")
-def health(): return {"ok": True, "key": bool(os.environ.get("ANTHROPIC_API_KEY"))}
+def health(): return {"ok": True, "key": bool(os.environ.get("ANTHROPIC_API_KEY")), "tts": bool(os.environ.get("GEMINI_API_KEY"))}
 
 @app.get("/")
 def index(): return FileResponse(BASE / "static" / "index.html")
+@app.get("/studio")
+def studio(): return FileResponse(BASE / "static" / "studio.html")
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")

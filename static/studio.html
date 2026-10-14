@@ -1,0 +1,495 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>우측통행 방송국</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;600&family=Press+Start+2P&display=swap">
+<style>
+/* Layout: 밤의 뉴스 스튜디오. 위에 TV 프레임(픽셀 앵커 3명·하단 자막·티커), 아래 조정실(이슈 입력 → 대본 검수 → 방송). 단일 다크 테마, 빨강·호박색 포인트 */
+:root{
+  --bg:#0E1014; --panel:#171A21; --panel2:#1F232C; --ink:#F2EEE6; --muted:#A49E92; --line:#2E333D;
+  --red:#D7262D; --red-ink:#FFFFFF; --amber:#F2B134; --amber-ink:#1A1206; --set:#0B2238; --desk:#5A2A1E;
+  --fact:#2E9E6B; --fact-bg:#10301F; --claim:#D7A62C; --claim-bg:#352A0B; --opin:#5C8DD6; --opin-bg:#13223A; --joke:#E25A8C; --joke-bg:#3A1324;
+  --f-display:"Do Hyeon","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-pixel:"Press Start 2P",monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:19px;line-height:1.6;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 64px}
+.wrap{max-width:1180px;margin:0 auto;display:grid;gap:20px}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance;letter-spacing:.01em}
+h1{font-size:clamp(30px,4vw,46px);line-height:1.1}
+h2{font-size:clamp(24px,2.6vw,30px)}
+h3{font-size:22px;line-height:1.3}
+.lab{font-size:15px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.pix{font-family:var(--f-pixel);font-size:15px;letter-spacing:0}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:12px}
+.logo .mark{width:46px;height:46px;background:var(--red);display:grid;place-items:center;font-family:var(--f-pixel);font-size:15px;color:var(--red-ink)}
+.logo .sub{font-size:15px;color:var(--muted)}
+.live{display:flex;gap:12px;align-items:center;font-family:var(--f-pixel);font-size:15px}
+.live .dot{width:12px;height:12px;background:var(--red);border-radius:50%;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.live .dot{animation:none}}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs button{border:none;border-bottom:3px solid transparent;background:none;font-family:var(--f-display);font-size:21px;padding:8px 16px;color:var(--muted);white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--red)}
+button{font:inherit;font-size:17px;cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:9px 16px}
+button.primary{background:var(--red);color:var(--red-ink);border-color:var(--red);font-family:var(--f-display);font-size:20px;letter-spacing:.02em}
+button.amber{background:var(--amber);color:var(--amber-ink);border-color:var(--amber)}
+button.small{font-size:15px;padding:5px 11px}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,textarea:focus,input:focus,select:focus{outline:2px solid var(--amber);outline-offset:2px}
+textarea,input[type=text],select{width:100%;font:inherit;font-size:17px;color:var(--ink);background:var(--bg);border:1px solid var(--line);padding:10px 12px;resize:vertical}
+select{width:auto}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.status{font-size:15px;color:var(--muted);min-height:1.4em}
+.err{color:#F09A9A}.ok{color:#8FD9AE}
+/* TV */
+.tv{background:var(--panel);border:1px solid var(--line);padding:14px;display:grid;gap:10px}
+.screen{position:relative;background:var(--set);aspect-ratio:16/9;max-width:100%;overflow:hidden;border:4px solid #000}
+.screen canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.onair{position:absolute;top:10px;left:10px;font-family:var(--f-pixel);font-size:15px;color:var(--red-ink);background:var(--red);padding:6px 10px}
+.onair.off{background:#333;color:#999}
+.bug{position:absolute;top:10px;right:10px;font-family:var(--f-pixel);font-size:15px;color:var(--amber)}
+.clock{position:absolute;top:40px;right:10px;font-family:var(--f-pixel);font-size:15px;color:#fff;opacity:.85}
+.lower{position:absolute;left:0;right:0;bottom:48px;padding:0 4%}
+.lower .name{display:inline-block;background:var(--red);color:var(--red-ink);font-family:var(--f-display);font-size:clamp(16px,2.2vw,24px);padding:2px 12px}
+.lower .line{background:rgba(0,0,0,.78);color:#fff;font-size:clamp(16px,2.4vw,26px);line-height:1.35;padding:8px 14px;font-weight:600;min-height:1.4em}
+.ticker{position:absolute;left:0;right:0;bottom:0;height:40px;background:var(--amber);color:var(--amber-ink);overflow:hidden;display:flex;align-items:center}
+.ticker .tag{background:var(--amber-ink);color:var(--amber);font-family:var(--f-pixel);font-size:15px;padding:0 10px;height:100%;display:flex;align-items:center;flex:none;z-index:1}
+.ticker .roll{white-space:nowrap;font-family:var(--f-display);font-size:21px;padding-left:100%;animation:roll 28s linear infinite}
+@keyframes roll{to{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){.ticker .roll{animation:none;padding-left:12px}}
+.prompter{background:#000;border:1px solid var(--line);padding:12px 16px;font-family:var(--f-display);font-size:24px;line-height:1.4;min-height:3.2em;color:#FFE9A8}
+.prompter .who{color:var(--muted);font-family:var(--f-body);font-size:15px;letter-spacing:.06em}
+/* control room */
+.grid{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);padding:20px;display:grid;gap:16px;min-width:0}
+.field{display:grid;gap:6px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+label.chip{display:inline-flex;align-items:center;gap:6px;font-size:15px;background:var(--panel2);padding:6px 11px;cursor:pointer;border:1px solid transparent}
+label.chip:has(input:checked){border-color:var(--amber);background:var(--bg)}
+label.chip input{accent-color:var(--red);margin:0}
+.srcs{display:grid;gap:4px;max-height:420px;overflow-y:auto;border:1px solid var(--line);padding:8px;background:var(--bg)}
+.srcs label{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:start;padding:6px 4px;border-bottom:1px solid var(--line);font-size:16px;cursor:pointer}
+.srcs label input{margin-top:6px;accent-color:var(--red)}
+.srcs .t{line-height:1.4}
+.srcs .m{font-size:15px;color:var(--muted)}
+.srcs .m b{color:var(--amber);font-weight:400}
+.seg{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px 14px;border-top:1px solid var(--line);padding:12px 0;align-items:start}
+.seg .av{width:44px;height:44px;image-rendering:pixelated;background:var(--set)}
+.seg .meta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;font-size:15px}
+.seg .who{font-family:var(--f-display);font-size:19px}
+.kind{font-size:15px;padding:1px 8px;font-weight:600}
+.kind.사실{background:var(--fact-bg);color:var(--fact)} .kind.주장{background:var(--claim-bg);color:var(--claim)} .kind.의견{background:var(--opin-bg);color:var(--opin)} .kind.농담{background:var(--joke-bg);color:var(--joke)}
+.seg textarea{min-height:0;font-size:17px;line-height:1.5}
+.seg .src{font-size:15px;color:var(--muted)}
+.seg.off{opacity:.45}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:15px;color:var(--muted)}
+.cast{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);padding:18px;display:grid;gap:10px;min-width:0}
+.card canvas{width:96px;height:96px;image-rendering:pixelated;background:var(--set)}
+.card .lab{margin-top:6px}
+.card input,.card textarea{font-size:16px}
+table{width:100%;border-collapse:collapse;font-size:17px}
+td,th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:15px;color:var(--muted);font-weight:400;letter-spacing:.06em}
+td.t{font-family:var(--f-pixel);font-size:15px;white-space:nowrap}
+.guard{border-left:3px solid var(--amber);padding:10px 14px;background:var(--panel2);font-size:17px;display:grid;gap:4px}
+.runs{display:grid;gap:8px}
+.runs .r{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0;font-size:17px}
+.when{font-family:var(--f-pixel);font-size:15px;color:var(--muted)}
+.empty{color:var(--muted);font-size:17px}
+.note{font-size:16px;color:var(--muted);margin:0}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <div class="mark">RL</div>
+      <div><h1 id="stName">우측통행</h1><div class="sub" id="stSub">RIGHT LANE NETWORK · 실제 헤드라인, 수상한 앵커들 · 가칭</div></div>
+    </div>
+    <div class="live"><span class="dot"></span><span>LIVE KST <span id="hdrClock">--:--</span></span></div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" id="tabOn" aria-selected="true">방송</button>
+    <button type="button" role="tab" id="tabCast" aria-selected="false">출연진·편성</button>
+    <button type="button" role="tab" id="tabStance" aria-selected="false">스탠스·톤</button>
+    <button type="button" role="tab" id="tabLog" aria-selected="false">기록</button>
+  </div>
+
+  <section id="paneOn">
+    <div class="tv">
+      <div class="screen">
+        <canvas id="stage" width="320" height="180" aria-label="스튜디오 화면"></canvas>
+        <div class="onair off" id="onair">STAND BY</div>
+        <div class="bug">RL·NEWS</div>
+        <div class="clock" id="tvClock">00:00:00</div>
+        <div class="lower"><span class="name" id="lowName">우측통행</span><div class="line" id="lowLine">오늘 이슈를 넣고 대본을 만들면 여기서 방송이 시작된다.</div></div>
+        <div class="ticker"><span class="tag">속보</span><div class="roll" id="roll">우측통행 방송국 시험 송출 중 · 앵커는 가상 인물이고 해설과 농담은 풍자다 · 헤드라인은 원 출처를 확인할 것</div></div>
+      </div>
+      <div class="prompter"><div class="who" id="pWho">텔레프롬프터</div><div id="pLine">대기 중</div></div>
+      <div class="row">
+        <button type="button" class="primary" id="play" disabled>▶ 방송 시작</button>
+        <button type="button" id="stopPlay" hidden>■ 멈춤</button>
+        <label class="chip" for="useTts"><input type="checkbox" id="useTts" checked> 음성(브라우저 TTS)</label>
+        <span class="status" id="playStatus"></span>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:20px">
+      <form class="panel" id="form" autocomplete="off">
+        <h2>조정실</h2>
+        <div class="field">
+          <div class="row" style="justify-content:space-between"><span class="lab">입력 채널 · 오늘 올라온 영상</span><button type="button" class="small" id="reload">새로 고침</button></div>
+          <div id="srcList" class="srcs"><p class="empty">불러오는 중…</p></div>
+          <p class="note" id="srcNote"></p>
+        </div>
+        <div class="field">
+          <span class="lab">프로그램</span>
+          <div class="chips" id="progs"></div>
+        </div>
+        <div class="field">
+          <span class="lab">길이</span>
+          <div class="chips" id="lens"></div>
+        </div>
+        <div class="field">
+          <label class="lab" for="note">추가 지시 (선택)</label>
+          <input type="text" id="note" placeholder="예: 두 번째 이슈를 메인으로, 팩트 끼어들기 2번">
+        </div>
+        <div class="row">
+          <button type="submit" class="primary" id="go">고른 이슈로 대본 만들기</button>
+          <button type="button" id="stopGen" hidden>멈추기</button>
+        </div>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+        <div class="guard">
+          <div class="lab">고정 규칙 (대본마다 자동 적용)</div>
+          <div>확인된 사실과 제기된 주장을 구분해 표시한다. 실존 인물 흉내·목소리 금지, 화면엔 우리 캐릭터만.</div>
+          <div>집단(지역·성별·출신) 자체 비하 금지. 확인 안 된 범죄·비리 단정 금지. 센 말은 "의견"으로.</div>
+        </div>
+      </form>
+      <section class="panel" id="review" aria-label="대본 검수">
+        <div class="row" style="justify-content:space-between">
+          <h2 id="rvTitle">대본 검수</h2>
+          <span class="row" style="gap:6px"><button type="button" class="small" id="copyAll">대본 복사</button><button type="button" class="small" id="allOn">전부 승인</button></span>
+        </div>
+        <div class="legend"><span><span class="kind 사실">사실</span> 출처 확인됨</span><span><span class="kind 주장">주장</span> 누군가의 주장, 단정 금지</span><span><span class="kind 의견">의견</span> 우리 스탠스</span><span><span class="kind 농담">농담</span> 풍자</span></div>
+        <p class="note">체크를 풀면 그 줄은 방송에서 빠진다. 글은 바로 고칠 수 있다. 승인된 줄만 "방송 시작"에 들어간다.</p>
+        <div id="segs"><p class="empty">아직 대본이 없다. 왼쪽에 이슈를 넣고 "대본 만들기".</p></div>
+      </section>
+    </div>
+  </section>
+
+  <section id="paneCast" hidden>
+    <div class="panel">
+      <h2>출연진 (오리지널 캐릭터 · 이름·말투는 고쳐서 저장됨)</h2>
+      <div class="cast" id="castBox"></div>
+      <div class="row"><button type="button" class="amber" id="saveCast">출연진 저장</button><span class="status" id="castStatus"></span></div>
+    </div>
+    <div class="panel" style="margin-top:20px">
+      <h2>편성표 (시험 운영안)</h2>
+      <table>
+        <thead><tr><th>시간</th><th>프로그램</th><th>성격</th><th>제작</th></tr></thead>
+        <tbody>
+          <tr><td class="t">07:30</td><td>아침 직진</td><td>밤사이 이슈 3개, 쇼츠 60초</td><td>자동 → 승인</td></tr>
+          <tr><td class="t">12:30</td><td>점심 속보</td><td>오전 핫이슈 1개 집중, 쇼츠 60초</td><td>자동 → 승인</td></tr>
+          <tr><td class="t">19:00</td><td>저녁 뉴스</td><td>오늘 이슈 5개, 5분 롱폼</td><td>자동 → 승인</td></tr>
+          <tr><td class="t">금 21:00</td><td>웃긴 센 말 (간판)</td><td>이번 주 최악 1개를 웃기게 조진다, 3~5분</td><td>펀치라인은 사람</td></tr>
+          <tr><td class="t">수시</td><td>팩트 데스크</td><td>유튜브에 도는 주장 하나 출처 대조</td><td>자동 → 승인</td></tr>
+          <tr><td class="t">—</td><td>24시간 라이브</td><td>위 방송 반복 + 티커. 4주 시험 통과 후</td><td>자동</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="paneStance" hidden>
+    <div class="panel">
+      <h2>스탠스 문서</h2>
+      <p class="note">대본을 쓸 때 이 문서가 기준이 된다. 네 말로 고쳐 써라. 고정 규칙은 서버에 박혀 있어 여기 써도 안 풀린다.</p>
+      <textarea id="stance" rows="16"></textarea>
+      <h3>톤 규칙</h3>
+      <textarea id="tone" rows="7"></textarea>
+      <div class="row"><button type="button" class="amber" id="saveStance">저장</button><button type="button" class="small" id="resetStance">기본값으로</button><span class="status" id="stanceStatus"></span></div>
+    </div>
+  </section>
+
+  <section id="paneLog" hidden>
+    <div class="panel">
+      <h2>만든 방송</h2>
+      <div class="runs" id="runs"><p class="empty">아직 없다. 대본을 만들면 여기 쌓인다.</p></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const el = (t, a = {}, ...kids) => { const e = document.createElement(t); for (const [k,v] of Object.entries(a)) { if (k==='class') e.className=v; else if (k==='text') e.textContent=v; else e.setAttribute(k,v); } for (const k of kids) if (k!=null) e.append(k); return e; };
+const KST = { timeZone:'Asia/Seoul' };
+const tick = () => { const d = new Date(); const s = d.toLocaleTimeString('ko-KR',{...KST,hour12:false}); $('#tvClock').textContent = s; $('#hdrClock').textContent = s.slice(0,5); };
+tick(); setInterval(tick, 1000);
+
+// ---------- cast (original pixel characters) ----------
+// 팔레트: . 투명 k 검정 s 피부 h 머리 r 빨강 w 흰 b 파랑 p 보라 g 회색 a 호박 e 눈 d 어두운회색
+const PAL = {k:'#111',s:'#F1C9A5',h:'#2A1F1A',r:'#D7262D',w:'#FFFFFF',b:'#1E3A8A',p:'#7B4FC9',g:'#8A94A6',a:'#F2B134',e:'#222',d:'#3A4150',n:'#C98F6A',t:'#0F7A4F'};
+const SPR = {
+  jikjin: [ // 한직진 — 메인 앵커
+  '....hhhhhh....',
+  '...hhhhhhhh...',
+  '...hhssssss...',
+  '...hskksskk...',
+  '...hssssssss..',
+  '....ssssss....',
+  '....ssMMss....',
+  '.....ssss.....',
+  '...bbbwwbbb...',
+  '..bbbbrrbbbb..',
+  '..bbbbrrbbbb..',
+  '..bbbbbbbbbb..',
+  '..bbbbbbbbbb..',
+  '..bbbbbbbbbb..'],
+  bora: [ // 서보라 — 서브 앵커
+  '....pppppp....',
+  '...pppppppp...',
+  '..ppssssssp...',
+  '..psekksekkp..',
+  '..pssssssssp..',
+  '..ppssssssp...',
+  '...pssMMss....',
+  '....ssss......',
+  '...wwwwwwww...',
+  '..wwaaaaaaww..',
+  '..wwaaaaaaww..',
+  '..aaaaaaaaaa..',
+  '..aaaaaaaaaa..',
+  '..aaaaaaaaaa..'],
+  fact: [ // 팩트-1 — 데스크 로봇
+  '......a.......',
+  '......g.......',
+  '..dddddddddd..',
+  '..dggggggggd..',
+  '..dgtMMMMtgd..',
+  '..dgttttttgd..',
+  '..dggggggggd..',
+  '..dddddddddd..',
+  '....dddddd....',
+  '..dddddddddd..',
+  '..daddddddad..',
+  '..dddddddddd..',
+  '..dd......dd..',
+  '..dd......dd..']
+};
+const DEFAULT_CAST = [
+  { id:'jikjin', name:'한직진', role:'메인 앵커', voice:'강경·직설. 결론부터 말하고 에두르지 않는다. 숫자를 들이대고 바로 판정한다.', catch:'"이게 뉴스입니다."', pitch:0.8, rate:1.05 },
+  { id:'bora', name:'서보라', role:'서브 앵커', voice:'어이없어하는 리액션 담당. 직진이 센 말을 하면 "아니 그걸 그렇게…" 하면서 한 번 더 웃기게 받는다.', catch:'"진짜요? 진짜요."', pitch:1.25, rate:1.08 },
+  { id:'fact', name:'팩트-1', role:'데스크 검증 로봇', voice:'감정 없음. 숫자·출처·날짜만 말한다. 누가 단정하면 끼어들어 "출처?"라고 묻고, 확인되면 "확인."이라고만 한다.', catch:'"출처?"', pitch:0.6, rate:0.95 }
+];
+let cast = JSON.parse(JSON.stringify(DEFAULT_CAST));
+function drawSprite(ctx, key, x, y, scale, mouthOpen) {
+  const rows = SPR[key]; if (!rows) return;
+  rows.forEach((row, j) => { [...row].forEach((c, i) => {
+    let col = PAL[c];
+    if (c === 'M') col = key === 'fact' ? (mouthOpen ? PAL.a : PAL.t) : (mouthOpen ? PAL.k : PAL.n);
+    if (!col) return; ctx.fillStyle = col; ctx.fillRect(x + i*scale, y + j*scale, scale, mouthOpen && c==='M' && key!=='fact' ? scale*1.6 : scale);
+  }); });
+}
+function portrait(key) { const c = el('canvas',{width:'14',height:'14'}); const ctx = c.getContext('2d'); ctx.fillStyle = PAL.b === undefined ? '#000' : '#0B2238'; ctx.fillRect(0,0,14,14); drawSprite(ctx, key, 0, 0, 1, false); return c; }
+
+// ---------- stage ----------
+const stage = $('#stage'), sctx = stage.getContext('2d');
+let speaking = null, mouthT = 0;
+function drawStage(t) {
+  const W = 320, H = 180; sctx.clearRect(0,0,W,H);
+  sctx.fillStyle = '#0B2238'; sctx.fillRect(0,0,W,H);
+  // 도시 창
+  sctx.fillStyle = '#132E4C'; sctx.fillRect(20,18,280,70);
+  for (let i=0;i<40;i++){ const x = 24 + (i*7)%272, y = 30 + ((i*13)%50); sctx.fillStyle = (i*7+Math.floor(t/700))%5===0 ? '#F2B134' : '#2B5278'; sctx.fillRect(x,y,2,2); }
+  // 로고 보드
+  sctx.fillStyle = '#D7262D'; sctx.fillRect(132,22,56,16); sctx.fillStyle = '#fff'; sctx.font = '8px "Press Start 2P", monospace'; sctx.fillText('RL NEWS',137,34);
+  // 데스크
+  sctx.fillStyle = '#5A2A1E'; sctx.fillRect(0,128,W,52); sctx.fillStyle = '#7A3A28'; sctx.fillRect(0,128,W,4);
+  sctx.fillStyle = '#F2B134'; sctx.fillRect(140,146,40,6); sctx.fillStyle = '#0B2238'; sctx.font='5px "Press Start 2P", monospace'; sctx.fillText('RL',155,151);
+  // 앵커 3명
+  const open = speaking && Math.floor(t/120)%2===0;
+  drawSprite(sctx,'jikjin', 62, 62, 5, speaking==='jikjin' && open);
+  drawSprite(sctx,'bora', 190, 62, 5, speaking==='bora' && open);
+  drawSprite(sctx,'fact', 260, 78, 3.5, speaking==='fact' && open);
+}
+let raf; function loop(t){ drawStage(t); raf = requestAnimationFrame(loop); } raf = requestAnimationFrame(loop);
+
+// ---------- tabs ----------
+const panes = { tabOn:'paneOn', tabCast:'paneCast', tabStance:'paneStance', tabLog:'paneLog' };
+function showTab(id){ for (const [tb,pn] of Object.entries(panes)) { $('#'+tb).setAttribute('aria-selected', String(tb===id)); $('#'+pn).hidden = tb!==id; } try{localStorage.setItem('rl_tab',id);}catch{} }
+Object.keys(panes).forEach(id => $('#'+id).onclick = () => showTab(id));
+try { const t = localStorage.getItem('rl_tab'); if (t && panes[t]) showTab(t); } catch {}
+
+// ---------- chips ----------
+const PROGS = [['daily','일상 뉴스'],['sig','웃긴 센 말 (간판)'],['fact','팩트 데스크']];
+const LENS = [['shorts','쇼츠 60초'],['five','5분']];
+const mkChips = (box, list, name, def) => list.forEach(([v,t],i) => { const id = name+i; const inp = el('input',{type:'radio',name,id,value:v}); if (v===def) inp.checked = true; $(box).append(el('label',{class:'chip',for:id},inp,t)); });
+mkChips('#progs', PROGS, 'prog', 'daily'); mkChips('#lens', LENS, 'len', 'shorts');
+// ---------- 입력 채널 ----------
+let picked = new Map();
+async function loadSources() {
+  const box = $('#srcList'); box.replaceChildren(el('p',{class:'empty',text:'불러오는 중…'}));
+  try {
+    const r = await fetch('/api/sources'); const d = await r.json(); box.replaceChildren();
+    d.sources.forEach(src => {
+      box.append(el('div',{class:'lab',style:'padding:6px 4px',text:src.name+' · 영상 '+src.videos.length+'개 · 기사 '+src.articles_total+'건'}));
+      src.videos.forEach((v,i) => {
+        const id = 'v_'+src.id+'_'+i; const inp = el('input',{type:'checkbox',id});
+        inp.onchange = () => { if (inp.checked) picked.set(id, v); else picked.delete(id); };
+        box.append(el('label',{for:id}, inp, el('span',{}, el('div',{class:'t',text:v.title}), el('div',{class:'m'}, v.published+' · ', v.article ? el('b',{text:'기사 매칭: '+v.article.title.slice(0,40)}) : '기사 매칭 없음'))));
+      });
+    });
+    $('#srcNote').textContent = '가져온 시각 '+d.fetched_at+' · 이슈를 1~5개 고르면 자막·기사 원문까지 읽어서 대본을 쓴다.';
+  } catch { box.replaceChildren(el('p',{class:'err',text:'피드를 못 불러왔다. 새로 고침.'})); }
+}
+loadSources(); $('#reload').onclick = loadSources;
+
+// ---------- stance ----------
+const DEFAULT_STANCE = `[채널 정체성]
+- 우리는 우파 시각의 젊은 뉴스 방송국이다. 노년층 정치 유튜브의 내용은 가져오되 포장은 완전히 새로 한다.
+- 시청자: 20~40대. 틀어놓고 보는 사람과 쇼츠로 처음 만나는 사람 둘 다.
+
+[기본 입장]
+- 시장경제·개인의 자유·법치·튼튼한 안보와 한미동맹을 기본값으로 본다.
+- 세금 인상, 규제 확대, 포퓰리즘 현금 살포, 반기업 정책은 비판 대상이다.
+- 집권 세력이 어디든 권력 남용·내로남불·말 바꾸기는 그대로 때린다. 우리 편이라고 봐주지 않는다(그래야 신뢰가 쌓인다).
+- 상대 진영의 "웃기지도 않은데 웃긴 척하는 콘텐츠"가 어떻게 먹혔는지 안다. 우리는 진짜 웃겨야 한다.
+
+[다루는 것]
+- 국회·정부 정책, 예산, 세금, 안보·외교, 노동·규제, 언론·사법 이슈, 우파 유튜브에서 그날 가장 많이 다룬 이슈.
+
+[다루지 않는 것]
+- 개인 사생활, 확인 안 된 폭로, 음모론. 다루더라도 "이런 주장이 돈다"까지만.`;
+const DEFAULT_TONE = `- 한직진은 세게, 서보라는 웃기게, 팩트-1은 차갑게. 셋의 대비가 포맷이다.
+- 센 말은 의견으로 말한다: "이건 미친 정책이다"(O) / "누가 돈을 빼돌렸다"(X, 확인 전).
+- 욕설은 순화한다. 광고 제한 피하기. "개판"까지는 되고 그 이상은 안 된다.
+- 일상 뉴스는 담백하게, 간판 프로그램에서만 펀치라인을 쓴다.
+- 쇼츠는 첫 문장이 훅이어야 한다. 3초 안에 "뭐?" 소리가 나와야 한다.`;
+$('#stance').value = DEFAULT_STANCE; $('#tone').value = DEFAULT_TONE;
+
+// ---------- capabilities ----------
+let runs=[], current=null;
+async function loadAll() {
+  try { const st = await (await fetch('/api/settings')).json(); if (st.stance) $('#stance').value = st.stance; if (st.tone) $('#tone').value = st.tone; if (Array.isArray(st.cast)) cast = st.cast; if (st.station) { $('#stName').textContent = st.station.name; $('#stSub').textContent = st.station.sub; } } catch {}
+  renderCast();
+  try { runs = await (await fetch('/api/shows')).json(); renderRuns(); if (!current && runs.length) loadRun(runs[0]); } catch {}
+  try { const h = await (await fetch('/health')).json(); if (!h.key) $('#status').textContent = '서버에 ANTHROPIC_API_KEY가 없어서 대본 생성은 아직 안 된다.'; } catch {}
+}
+loadAll();
+async function putSettings(obj) { const r = await fetch('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)}); if (!r.ok) throw new Error(); return r.json(); }
+
+$('#saveStance').onclick = async () => { try { await putSettings({ stance: $('#stance').value, tone: $('#tone').value }); $('#stanceStatus').textContent = '저장됨'; } catch { $('#stanceStatus').textContent = '저장 실패'; } };
+$('#resetStance').onclick = () => { $('#stance').value = DEFAULT_STANCE; $('#tone').value = DEFAULT_TONE; };
+
+function renderCast() {
+  const box = $('#castBox'); box.replaceChildren();
+  cast.forEach((c, i) => {
+    const card = el('div',{class:'card'});
+    card.append(portrait(c.id));
+    const nm = el('input',{type:'text',id:'cn'+i,value:c.name,'aria-label':'이름'}); nm.oninput = () => c.name = nm.value;
+    const rl = el('input',{type:'text',id:'cr'+i,value:c.role,'aria-label':'역할'}); rl.oninput = () => c.role = rl.value;
+    const vo = el('textarea',{id:'cv'+i,rows:'4','aria-label':'말투'}); vo.value = c.voice; vo.oninput = () => c.voice = vo.value;
+    const ca = el('input',{type:'text',id:'cc'+i,value:c.catch,'aria-label':'입버릇'}); ca.oninput = () => c.catch = ca.value;
+    card.append(el('label',{class:'lab',for:'cn'+i,text:'이름'}), nm, el('label',{class:'lab',for:'cr'+i,text:'역할'}), rl, el('label',{class:'lab',for:'cv'+i,text:'말투'}), vo, el('label',{class:'lab',for:'cc'+i,text:'입버릇'}), ca);
+    box.append(card);
+  });
+}
+$('#saveCast').onclick = async () => { try { await putSettings({ cast }); $('#castStatus').textContent = '저장됨'; } catch { $('#castStatus').textContent = '저장 실패'; } };
+
+// ---------- generate ----------
+let ctl = null;
+$('#form').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  if (!picked.size) { $('#status').textContent = '이슈를 하나 이상 골라줘.'; return; }
+  const prog = (document.querySelector('input[name=prog]:checked')||{}).value || 'daily';
+  const length = (document.querySelector('input[name=len]:checked')||{}).value || 'shorts';
+  const items = [...picked.values()].map(v => ({ title: v.title, vid: v.vid, link: v.link, article_link: v.article?.link || null, article_title: v.article?.title || null }));
+  ctl = new AbortController(); $('#go').disabled = true; $('#stopGen').hidden = false;
+  const t0 = Date.now(); const tk = setInterval(() => { $('#status').textContent = `자막·기사 읽고 쓰는 중… ${Math.round((Date.now()-t0)/1000)}초 (보통 30~90초)`; }, 1000);
+  try {
+    const r = await fetch('/api/script', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ items, prog, length, note: $('#note').value.trim() }), signal: ctl.signal });
+    if (!r.ok) { let m = '생성 실패'; try { m = (await r.json()).detail || m; } catch {} throw new Error(m); }
+    const run = await r.json(); runs.unshift(run); renderRuns(); loadRun(run);
+    const mat = (run.material||[]).map(m => `${m.title.slice(0,18)}… 자막 ${m.transcript?'O':'X('+m.transcript_note+')'} · 기사 ${m.article?'O':'X'}`).join(' / ');
+    $('#status').textContent = `완료 · ${Math.round((Date.now()-t0)/1000)}초 · ${run.model} · 재료: ${mat}`;
+  } catch (e) { $('#status').textContent = e.name==='AbortError' ? '멈췄다.' : (e.message || '생성 실패. 잠시 후 다시.'); }
+  finally { clearInterval(tk); $('#go').disabled = false; $('#stopGen').hidden = true; ctl = null; }
+});
+$('#stopGen').onclick = () => ctl?.abort();
+
+// ---------- review ----------
+function castOf(id){ return cast.find(c => c.id===id) || cast[0]; }
+function loadRun(run) {
+  current = run; const r = run.result;
+  $('#rvTitle').textContent = r.title || '대본 검수';
+  if (Array.isArray(r.ticker) && r.ticker.length) $('#roll').textContent = r.ticker.join('   ·   ');
+  if (run.input && run.input.prog) { const p = document.querySelector('input[name=prog][value='+run.input.prog+']'); if (p) p.checked = true; }
+  $('#lowLine').textContent = r.hook || r.title || '';
+  const box = $('#segs'); box.replaceChildren();
+  r.segments.forEach((s, i) => {
+    const row = el('div',{class:'seg'+(s.on===false?' off':'')});
+    const av = portrait(s.speaker); av.className = 'av';
+    const chk = el('input',{type:'checkbox',id:'on'+i}); chk.checked = s.on !== false; chk.onchange = () => { s.on = chk.checked; row.classList.toggle('off', !s.on); refreshPlay(); };
+    const ta = el('textarea',{rows:'2',id:'ln'+i,'aria-label':'대사'}); ta.value = s.line; ta.oninput = () => s.line = ta.value;
+    const meta = el('div',{class:'meta'}, el('label',{for:'on'+i,class:'row',style:'gap:6px'}, chk, el('span',{class:'who',text:castOf(s.speaker).name})), el('span',{class:'kind '+s.kind,text:s.kind}), s.source ? el('span',{class:'src',text:'출처: '+s.source}) : null);
+    row.append(av, el('div',{style:'display:grid;gap:6px;min-width:0'}, meta, ta));
+    box.append(row);
+  });
+  refreshPlay();
+}
+function refreshPlay(){ const ok = !!(current && current.result.segments.some(s => s.on !== false)); $('#play').disabled = !ok; }
+$('#allOn').onclick = () => { if (!current) return; current.result.segments.forEach(s => s.on = true); loadRun(current); };
+$('#copyAll').onclick = async () => {
+  if (!current) return; const r = current.result;
+  const txt = [r.title||'', '', ...r.segments.filter(s=>s.on!==false).map(s => `${castOf(s.speaker).name}: ${s.line}` + (s.kind==='주장' ? ' (주장)' : '') + (s.source ? ` [${s.source}]` : ''))].join('\n');
+  try { await navigator.clipboard.writeText(txt); $('#status').textContent = '대본 복사됨'; } catch { const ta = el('textarea',{rows:'8'}); ta.value = txt; $('#segs').prepend(ta); ta.select(); }
+};
+
+// ---------- playback ----------
+let playing = false;
+const pickVoice = () => { try { const vs = speechSynthesis.getVoices(); return vs.find(v => /ko/i.test(v.lang)) || null; } catch { return null; } };
+try { speechSynthesis.onvoiceschanged = () => {}; } catch {}
+function say(text, c) {
+  return new Promise(res => {
+    if (!$('#useTts').checked || !('speechSynthesis' in window)) { setTimeout(res, Math.max(1200, text.length*110)); return; }
+    try {
+      const u = new SpeechSynthesisUtterance(text); const v = pickVoice(); if (v) u.voice = v; u.lang = 'ko-KR'; u.pitch = c.pitch || 1; u.rate = c.rate || 1;
+      let done = false; const fin = () => { if (!done) { done = true; res(); } };
+      u.onend = fin; u.onerror = fin; speechSynthesis.speak(u); setTimeout(fin, Math.max(3000, text.length*220));
+    } catch { setTimeout(res, Math.max(1200, text.length*110)); }
+  });
+}
+$('#play').onclick = async () => {
+  if (!current || playing) return; playing = true; $('#play').disabled = true; $('#stopPlay').hidden = false;
+  $('#onair').textContent = 'ON AIR'; $('#onair').classList.remove('off');
+  const segs = current.result.segments.filter(s => s.on !== false);
+  for (const s of segs) {
+    if (!playing) break; const c = castOf(s.speaker);
+    speaking = s.speaker; $('#lowName').textContent = c.name; $('#lowLine').textContent = s.line; $('#pWho').textContent = `${c.name} · ${s.kind}`; $('#pLine').textContent = s.line;
+    $('#playStatus').textContent = `${segs.indexOf(s)+1}/${segs.length}`;
+    await say(s.line, c); speaking = null; await new Promise(r => setTimeout(r, 250));
+  }
+  stopPlay();
+};
+function stopPlay(){ playing = false; speaking = null; try { speechSynthesis.cancel(); } catch {} $('#onair').textContent = 'STAND BY'; $('#onair').classList.add('off'); $('#stopPlay').hidden = true; $('#pWho').textContent = '텔레프롬프터'; $('#pLine').textContent = '방송 끝'; $('#playStatus').textContent = ''; refreshPlay(); }
+$('#stopPlay').onclick = stopPlay;
+
+// ---------- runs ----------
+function renderRuns() {
+  const box = $('#runs'); if (!runs.length) return; box.replaceChildren();
+  runs.forEach(r => {
+    const b = el('button',{type:'button',class:'small',text: current && current.id===r.id ? '보는 중' : '열기'}); b.onclick = () => { loadRun(r); renderRuns(); showTab('tabOn'); };
+    const del = el('button',{type:'button',class:'small',text:'삭제'}); del.onclick = async () => { try { await fetch('/api/shows/'+r.id,{method:'DELETE'}); runs = runs.filter(x => x.id!==r.id); if (current && current.id===r.id) current = null; renderRuns(); } catch {} };
+    const progName = (PROGS.find(p=>p[0]===r.input?.prog)||[])[1] || '';
+    box.append(el('div',{class:'r'}, el('span',{style:'min-width:0;flex:1 1 260px'}, el('span',{class:'when',text:new Date(r.createdAt).toLocaleString('ko-KR',{...KST,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+'  '}), el('b',{text:(r.result?.title||'')+' '}), el('span',{class:'lab',text:progName+' · '+(r.result?.segments?.length||0)+'줄'})), el('span',{class:'row',style:'gap:6px'}, b, del)));
+  });
+}
+})();
+</script>
+</body></html>
