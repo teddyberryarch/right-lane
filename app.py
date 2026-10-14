@@ -223,12 +223,22 @@ def api_script(req: ScriptReq):
 # ---------- 음성 (Gemini TTS = NotebookLM 계열) ----------
 AUDIO = DATA / "audio"; AUDIO.mkdir(parents=True, exist_ok=True)
 TTS_MODEL = os.environ.get("TTS_MODEL", "gemini-2.5-flash-preview-tts")
-VOICES = {"jikjin": ("Charon", "단호하고 낮은 뉴스 앵커 톤, 빠르고 또렷하게"), "bora": ("Leda", "밝고 장난기 있는 공동 앵커, 어이없어하는 뉘앙스를 살려서"), "fact": ("Iapetus", "감정 없는 기계적 톤, 또박또박 천천히")}
+VOICES = json.loads(os.environ.get("VOICES_JSON") or json.dumps({
+    "jikjin": ["Charon", "차분하고 낮은 목소리의 한국 뉴스 메인 앵커. 보통 말하는 속도로, 자연스럽게, 문장 끝을 또렷하게"],
+    "bora": ["Leda", "밝은 목소리의 한국 뉴스 공동 앵커. 보통 말하는 속도로 자연스럽게, 살짝 웃음기 있게"],
+    "fact": ["Iapetus", "담담한 남성 아나운서. 보통 속도로 또박또박, 감정 없이 사실을 읽듯이"]}))
+PROGRAMS = {
+    "아침 직진": {"desc": "밤사이 매일신문이 다룬 이슈 3개를 60초로. 출근길용.", "hosts": ["jikjin", "bora"]},
+    "점심 속보": {"desc": "오전 가장 뜨거운 이슈 2개. 한직진이 판정하고 서보라가 받는다.", "hosts": ["jikjin", "bora"]},
+    "저녁 뉴스": {"desc": "오늘 이슈 4개, 5분 정리. 하루의 메인 뉴스.", "hosts": ["jikjin", "bora", "fact"]},
+    "팩트 데스크": {"desc": "유튜브에 도는 주장을 팩트-1이 기사와 대조해 확인·미확인·반박으로 판정.", "hosts": ["fact", "jikjin"]},
+    "웃긴 센 말": {"desc": "주 1회 간판. 이번 주 최악 하나를 끝까지 웃기게. (준비 중)", "hosts": ["jikjin", "bora"]},
+}
 def tts_segment(text, speaker):
     key = os.environ.get("GEMINI_API_KEY")
     if not key: return None, "GEMINI_API_KEY 없음"
     voice, style = VOICES.get(speaker, VOICES["jikjin"])
-    body = {"contents": [{"parts": [{"text": f"{style}. 다음 대사를 한국어로 읽어라:\n{text}"}]}],
+    body = {"contents": [{"parts": [{"text": f"{style}. 다음 문장만 읽는다:\n\n{text}"}]}],
             "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
     for attempt in range(4):
         r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{TTS_MODEL}:generateContent", params={"key": key}, json=body, timeout=90)
@@ -265,9 +275,12 @@ def api_audio(sid: str, i: int):
     return Response(f.read_bytes(), media_type="audio/wav", headers={"Cache-Control": "public, max-age=86400"})
 
 @app.post("/api/shows/{sid}/synth")
-def api_synth(sid: str):
+def api_synth(sid: str, force: bool = False):
     sh = next((x for x in shows if x["id"] == sid), None)
     if not sh: raise HTTPException(404, "없음")
+    if force:
+        for f in (AUDIO / sid).glob("*.wav"): f.unlink()
+        sh["audio"] = {"ready": False, "note": "다시 생성 중", "count": 0}
     synth_async(sh); return {"ok": True}
 
 # ---------- 편성 ----------
@@ -337,7 +350,7 @@ def api_now():
     slot = slot_for(); nxt = next_slot()
     return {"kst": time.strftime("%H:%M", time.gmtime(time.time() + 9 * 3600)), "on_now": slot, "up_next": nxt,
             "schedule": [{"start": a % 24, "end": b % 24, "name": nm, "prog": p} for a, b, p, l, nm, n in SCHEDULE],
-            "autopilot": {**auto_state, "interval_min": AUTO_MIN}, "shows": shows[:30], "station": settings["station"]}
+            "autopilot": {**auto_state, "interval_min": AUTO_MIN}, "shows": shows[:30], "station": settings["station"], "programs": PROGRAMS, "cast": settings["cast"]}
 
 @app.post("/api/autopilot/run")
 def api_auto_run():

@@ -44,6 +44,16 @@ button:focus-visible,input:focus{outline:2px solid var(--amber);outline-offset:2
 .ticker .tag{background:var(--amber-ink);color:var(--amber);font-family:var(--f-pixel);font-size:15px;padding:0 10px;height:100%;display:flex;align-items:center;flex:none;z-index:1}
 .ticker .roll{white-space:nowrap;font-family:var(--f-display);font-size:21px;padding-left:100%;animation:roll 30s linear infinite}
 @keyframes roll{to{transform:translateX(-100%)}} @media (prefers-reduced-motion:reduce){.ticker .roll{animation:none;padding-left:12px}}
+.card-ov{position:absolute;left:6%;right:6%;top:18%;background:rgba(14,16,20,.9);border-left:6px solid var(--red);padding:14px 18px;display:grid;gap:4px}
+.card-ov[hidden]{display:none}
+.tc-title{font-family:var(--f-display);font-size:clamp(20px,3.4vw,36px);line-height:1.2;color:#fff}
+.shows{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.show{background:var(--panel2);border:1px solid var(--line);padding:14px;display:grid;gap:6px}
+.show .hosts{display:flex;gap:6px;align-items:center}
+.show .hosts canvas{width:28px;height:28px;image-rendering:pixelated;background:var(--set)}
+.show.now{border-color:var(--amber)}
+.qs{display:flex;flex-wrap:wrap;gap:6px}
+.qs button{font-size:15px;padding:4px 10px}
 .off-screen{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.72);gap:12px;text-align:center;padding:16px}
 .off-screen p{margin:0;color:var(--muted);font-size:17px;max-width:40ch}
 .off-screen[hidden]{display:none}
@@ -70,7 +80,7 @@ footer a{color:var(--amber)}
 <div class="wrap">
   <header>
     <div class="logo"><div class="mark">RL</div><div><h1 id="stName">우측통행</h1><div class="sub" id="stSub">RIGHT LANE NETWORK · 실제 헤드라인, 수상한 앵커들</div></div></div>
-    <nav><a href="#guide">편성표</a><a href="#replays">다시보기</a><a href="#ask">데스크에 묻기</a><a href="#about">소개</a><a href="/studio">조정실</a></nav>
+    <nav><a href="#guide">편성표</a><a href="#programs">프로그램</a><a href="#replays">다시보기</a><a href="#ask">데스크에 묻기</a><a href="#about">소개</a><a href="/studio">조정실</a></nav>
     <div class="live"><span class="dot"></span><span>LIVE KST <span id="hdrClock">--:--</span></span></div>
   </header>
 
@@ -82,6 +92,7 @@ footer a{color:var(--amber)}
       <div class="bug">RL·NEWS</div><div class="clock" id="tvClock">00:00:00</div>
       <div class="lower"><span class="name" id="lowName">우측통행</span><div class="line" id="lowLine">텔레프롬프터 예열 중…</div></div>
       <div class="ticker"><span class="tag">속보</span><div class="roll" id="roll">우측통행 24시간 뉴스 · 앵커는 가상 인물, 해설과 농담은 풍자 · 헤드라인은 원 출처를 확인할 것</div></div>
+      <div class="card-ov" id="titleCard" hidden><div class="lab" id="tcProg">프로그램</div><div class="tc-title" id="tcTitle">제목</div><div class="lab" id="tcMeta"></div></div>
       <div class="off-screen" id="offScreen"><button type="button" class="primary" id="tvOn">▶ TV 켜기</button><p id="offMsg">켜면 지금 편성된 방송부터 이어서 계속 나온다. 소리는 브라우저 음성.</p></div>
     </div>
     <div class="ctl">
@@ -94,15 +105,18 @@ footer a{color:var(--amber)}
 
   <div class="two">
     <section class="panel" id="guide"><h2>편성표</h2>
-      <table><thead><tr><th>시간(KST)</th><th>프로그램</th><th>무엇</th></tr></thead><tbody id="guideBody"></tbody></table>
+      <p class="note">서울 시간 기준. 각 시간대에 들어오면 서버가 그 프로그램 대본을 자동으로 쓰고, TV는 가장 최근 방송부터 이어서 튼다.</p>
+      <table><thead><tr><th>시간</th><th>프로그램</th><th>상태</th></tr></thead><tbody id="guideBody"></tbody></table>
       <p class="note" id="autoNote">자동 편성 상태 불러오는 중…</p>
     </section>
     <section class="panel" id="ask"><h2>데스크에 묻기</h2>
-      <p class="note">앵커들에게 한 줄 질문. 사실은 지어내지 않고, 모르면 팩트-1이 "확인된 바 없음"이라고 한다.</p>
+      <p class="note">PNN의 "Ask the desk"와 같은 것. 시청자가 앵커에게 질문을 보내면 앵커 셋이 최근 방송 내용 안에서 짧게 답한다. 방송 중이면 화면에서도 읽어준다.</p><div class="qs"><button type="button" class="small">오늘 제일 큰 이슈가 뭐야?</button><button type="button" class="small">팩트-1, 아까 그 주장 확인된 거야?</button><button type="button" class="small">한직진, 너 입장은 뭔데</button></div>
       <div class="ask"><input type="text" id="askIn" placeholder="예: 오늘 청문회 핵심이 뭐야?"><button type="button" class="primary" id="askBtn" style="font-size:18px">묻기</button></div>
       <div id="askOut" class="list"></div>
     </section>
   </div>
+
+  <section class="panel" id="programs"><h2>프로그램</h2><p class="note">시간대마다 다른 프로그램이 나온다. 진행자는 고정 출연진 3명.</p><div class="shows" id="progList"></div></section>
 
   <section class="panel" id="replays"><h2>다시보기</h2><div class="list" id="replayList"><p class="note">아직 방송이 없다.</p></div></section>
 
@@ -146,7 +160,11 @@ async function refresh(){
   if (now.station) { $('#stName').textContent = now.station.name; $('#stSub').textContent = now.station.sub; }
   $('#progName').textContent = now.on_now.name;
   const gb = $('#guideBody'); gb.replaceChildren();
-  now.schedule.forEach(s => gb.append(el('tr',{class: s.name===now.on_now.name?'now':''}, el('td',{class:'t',text:String(s.start).padStart(2,'0')+':00'}), el('td',{text:s.name+(s.name===now.on_now.name?'  · ON NOW':'')}), el('td',{text:{daily:'매일신문 새 이슈를 받아 뉴스',fact:'도는 주장을 출처와 대조',sig:'이번 주 최악을 웃기게'}[s.prog]||''}))));
+  now.schedule.forEach(s => { const st = s.name===now.on_now.name ? 'ON NOW' : s.name===now.up_next.name ? 'UP NEXT' : '';
+    gb.append(el('tr',{class: st==='ON NOW'?'now':''}, el('td',{class:'t',text:String(s.start).padStart(2,'0')+':00–'+String(s.end).padStart(2,'0')+':00'}), el('td',{text:s.name}), el('td',{class:'pix',text:st}))); });
+  const pl = $('#progList'); pl.replaceChildren();
+  if (now.cast) cast = now.cast.map(c => ({...c}));
+  Object.entries(now.programs||{}).forEach(([name,p]) => { const h = el('div',{class:'hosts'}); (p.hosts||[]).forEach(id => h.append(portrait(id), el('span',{class:'lab',text:castOf(id).name}))); pl.append(el('div',{class:'show'+(name===now.on_now.name?' now':'')}, el('h3',{text:name+(name===now.on_now.name?' · ON NOW':'')}), el('div',{style:'font-size:16px',text:p.desc}), h)); });
   const a = now.autopilot; $('#autoNote').textContent = `자동 편성: ${a.interval_min}분마다 새 영상이 있으면 대본 생성 · 마지막 ${a.last_run||'—'} · ${a.last_result}` + (a.running?' · 생성 중…':'');
   const rl = $('#replayList'); rl.replaceChildren();
   if (!shows.length) rl.append(el('p',{class:'note',text:'아직 방송이 없다. 자동 편성이 첫 대본을 쓰는 중이면 1~2분 뒤 새로 고침.'}));
@@ -192,9 +210,12 @@ async function runLoop(){
     if (!s) { $('#lowLine').textContent = '첫 방송 대본을 쓰는 중. 잠시 뒤 자동으로 시작.'; await sleep(15000); await refresh(); continue; }
     playedIds.add(s.id);
     $('#progName').textContent = s.program || now?.on_now?.name || '';
+    const segs = s.result.segments; const hasAudio = s.audio && s.audio.count > 0;
     if (s.result.ticker?.length) $('#roll').textContent = s.result.ticker.join('   ·   ');
     $('#status').textContent = `방송 중: ${s.result.title||''}`;
-    const segs = s.result.segments; const hasAudio = s.audio && s.audio.count > 0;
+    $('#tcProg').textContent = (s.program||'') + ' · ' + new Date(s.createdAt).toLocaleString('ko-KR',{...KST,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    $('#tcTitle').textContent = s.result.title||''; $('#tcMeta').textContent = '재료: 매일신문 · 출연: ' + [...new Set(segs.map(g=>castOf(g.speaker).name))].join(', ');
+    $('#titleCard').hidden = false; $('#lowName').textContent = s.program||'우측통행'; $('#lowLine').textContent = s.result.hook || s.result.title || ''; speaking = null; await sleep(3500); $('#titleCard').hidden = true;
     for (let i = 0; i < segs.length; i++) { const g = segs[i];
       if (!on || abortSpeech) break; if (g.on === false) continue;
       const c = castOf(g.speaker); speaking = g.speaker; $('#lowName').textContent = c.name; $('#lowLine').textContent = g.line;
@@ -218,6 +239,7 @@ $('#askBtn').onclick = async () => {
   } catch (e) { out.replaceChildren(el('p',{class:'note',text:e.message||'실패'})); } finally { $('#askBtn').disabled = false; }
 };
 $('#askIn').addEventListener('keydown', e => { if (e.key==='Enter') $('#askBtn').click(); });
+document.querySelectorAll('.qs button').forEach(b => b.onclick = () => { $('#askIn').value = b.textContent; $('#askBtn').click(); });
 })();
 </script>
 </body></html>
