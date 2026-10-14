@@ -1,0 +1,70 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>우측통행 다시보기</title>
+<meta name="description" content="우측통행 방송 다시보기. 각 편은 대본과 음성을 그대로 다시 튼다.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;600&family=Press+Start+2P&display=swap">
+<link rel="stylesheet" href="/static/rl.css">
+</head><body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="/"><div class="mark">RL</div><div><h1>우측통행 다시보기</h1><div class="sub">최근 방송 보관 · 테이프를 골라 넣어라</div></div></a>
+    <nav><a href="/">라이브 보기</a><a href="/#guide">편성표</a><a href="/about">소개</a></nav>
+  </header>
+  <div class="vcr">
+    <div class="deck"><span id="tapeName">INSERT TAPE</span><span>SP · T-120 · HiFi STEREO</span><span id="counter">0:00:00</span></div>
+    <div class="screen">
+      <canvas id="stage" width="320" height="180" aria-label="재생 화면"></canvas>
+      <div class="onair off" id="onair">STOP</div><div class="prog" id="progName">—</div><div class="bug">RL·VCR</div>
+      <div class="lower"><span class="name" id="lowName">우측통행</span><div class="line" id="lowLine">아래에서 방송을 고른다.</div></div>
+    </div>
+    <div class="btns"><button type="button" id="rew">◀◀ REW</button><button type="button" id="play">▶ PLAY</button><button type="button" id="pause">❚❚ PAUSE</button><button type="button" id="stop">■ STOP</button><button type="button" id="ff">FF ▶▶</button><span class="status" id="status" style="align-self:center"></span></div>
+    <div class="tape" id="tape">테이프 없음</div>
+  </div>
+  <section class="panel"><div class="ctl" style="justify-content:space-between"><h2>보관된 방송</h2><input type="text" id="rsearch" placeholder="다시보기 검색" style="max-width:260px"></div>
+    <p class="note">코미디 뉴스 채널이다. 헤드라인은 실제 보도이며 출처를 단다. 앵커와 출연진은 가상 인물이고 해설·농담은 풍자다.</p>
+    <div class="list" id="list"></div>
+  </section>
+  <footer><span>우측통행 · <a href="/">라이브</a> · <a href="/api/today" target="_blank" rel="noopener">오늘의 우측통행</a> · <a href="/about">소개</a></span></footer>
+</div>
+<script src="/static/rl.js"></script>
+<script>
+(() => {
+const { $, el, fmtWhen, castOf, portrait, say, stopAll, sleep } = RL;
+RL.mountStage($('#stage'));
+let shows = [], cur = null, idx = 0, state = 'stop', token = 0, t0 = 0, acc = 0;
+setInterval(() => { if (state==='play') { const s = Math.floor((acc + Date.now() - t0)/1000); $('#counter').textContent = Math.floor(s/3600)+':'+String(Math.floor(s/60%60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); } }, 500);
+async function load(){ const d = await (await fetch('/api/now')).json(); RL.setCast(d.cast); shows = d.shows || []; render(); }
+function render(){
+  const q = ($('#rsearch').value||'').trim(); const box = $('#list'); box.replaceChildren();
+  const list = shows.filter(s => !q || JSON.stringify(s.result).includes(q) || (s.program||'').includes(q));
+  if (!list.length) box.append(el('p',{class:'note',text: shows.length ? '검색 결과 없음' : '아직 보관된 방송이 없다.'}));
+  list.forEach(s => { const b = el('button',{type:'button',class:'small',text: cur && cur.id===s.id ? '넣음' : '테이프 넣기'}); b.onclick = () => insert(s);
+    const show = el('button',{type:'button',class:'small',text:'대본'}); show.onclick = () => toggleScript(s, row);
+    const row = el('div',{class:'r'}, el('span',{style:'min-width:0;flex:1 1 260px'}, el('span',{class:'when',text:fmtWhen(s.createdAt)+'  '}), el('b',{text:(s.result.title||'')+' '}), el('span',{class:'lab',text:(s.program||'')+' · '+s.result.segments.length+'줄'+(s.audio&&s.audio.ready?' · AI 음성':'')})), el('span',{class:'ctl',style:'gap:6px'}, show, b));
+    box.append(row); });
+}
+function toggleScript(s, row){ const nx = row.nextElementSibling; if (nx && nx.dataset.script===s.id) { nx.remove(); return; }
+  const box = el('div',{'data-script':s.id,style:'padding:4px 0 12px'});
+  s.result.segments.forEach(g => box.append(el('div',{class:'seg'}, portrait(g.speaker,36), el('div',{}, el('span',{class:'who',text:castOf(g.speaker).name}), el('span',{class:'kind '+g.kind,text:g.kind}), el('div',{text:g.line}), g.source ? el('div',{class:'src'}, '출처: ', /^https?:/.test(g.source) ? el('a',{href:g.source,target:'_blank',rel:'noopener',text:g.source}) : g.source) : null))));
+  row.after(box); }
+function insert(s){ stopPlay(); cur = s; idx = 0; acc = 0; $('#counter').textContent='0:00:00'; $('#tapeName').textContent = (s.program||'')+' · '+fmtWhen(s.createdAt); $('#tape').textContent = s.result.title||''; $('#progName').textContent = s.program||''; $('#lowLine').textContent = '▶ PLAY를 누른다'; RL.setOnStage([...new Set(s.result.segments.map(g=>g.speaker))]); render(); }
+async function playLoop(myToken){
+  const segs = cur.result.segments, hasAudio = cur.audio && cur.audio.count > 0;
+  while (state==='play' && token===myToken && idx < segs.length) {
+    const g = segs[idx]; const c = castOf(g.speaker); RL.setSpeaking(g.speaker); $('#lowName').textContent = c.name; $('#lowLine').textContent = g.line; $('#status').textContent = `${idx+1}/${segs.length}`;
+    await say(g.line, c, hasAudio ? `/api/audio/${cur.id}/${idx}.wav` : null); RL.setSpeaking(null);
+    if (state!=='play' || token!==myToken) return; idx++; await sleep(200);
+  }
+  if (state==='play' && token===myToken) { state='stop'; $('#onair').textContent='END'; $('#lowLine').textContent='테이프 끝'; acc += Date.now()-t0; }
+}
+function startPlay(){ if (!cur) { $('#status').textContent='테이프를 먼저 넣어라'; return; } if (state==='play') return; state='play'; t0 = Date.now(); token++; $('#onair').textContent='PLAY'; $('#onair').classList.remove('off'); playLoop(token); }
+function pausePlay(){ if (state!=='play') return; state='pause'; acc += Date.now()-t0; token++; stopAll(); RL.setSpeaking(null); $('#onair').textContent='PAUSE'; }
+function stopPlay(){ if (state==='play') acc = 0; state='stop'; token++; stopAll(); RL.setSpeaking(null); idx = 0; acc = 0; $('#onair').textContent='STOP'; $('#onair').classList.add('off'); $('#status').textContent=''; $('#counter').textContent='0:00:00'; }
+$('#play').onclick = startPlay; $('#pause').onclick = pausePlay; $('#stop').onclick = stopPlay;
+$('#ff').onclick = () => { if (!cur) return; const was = state==='play'; token++; stopAll(); idx = Math.min(idx+3, cur.result.segments.length-1); if (was) { state='pause'; startPlay(); } else $('#lowLine').textContent = cur.result.segments[idx].line; };
+$('#rew').onclick = () => { if (!cur) return; const was = state==='play'; token++; stopAll(); idx = Math.max(idx-3, 0); if (was) { state='pause'; startPlay(); } else $('#lowLine').textContent = cur.result.segments[idx].line; };
+$('#rsearch').addEventListener('input', render);
+load();
+})();
+</script>
+</body></html>

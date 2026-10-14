@@ -1,259 +1,140 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>우측통행 — 24시간 뉴스</title>
-<meta name="description" content="실제 헤드라인, 수상한 앵커들. AI 앵커 3명이 매일신문 뉴스를 24시간 읽는 가상 방송국.">
+<meta name="description" content="실제 헤드라인, 수상한 앵커들. AI 앵커들이 매일신문 뉴스를 24시간 읽는 가상 방송국.">
+<meta property="og:title" content="우측통행 — 24시간 뉴스"><meta property="og:description" content="실제 헤드라인, 수상한 앵커들.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;600&family=Press+Start+2P&display=swap">
-<style>
-/* Layout: 한 대의 TV가 중심. 위 네비, TV, 그 아래 편성표·다시보기·데스크에 묻기·소개. 단일 다크 */
-:root{--bg:#0E1014;--panel:#171A21;--panel2:#1F232C;--ink:#F2EEE6;--muted:#A49E92;--line:#2E333D;--red:#D7262D;--red-ink:#fff;--amber:#F2B134;--amber-ink:#1A1206;--set:#0B2238;
---fact:#2E9E6B;--fact-bg:#10301F;--claim:#D7A62C;--claim-bg:#352A0B;--opin:#5C8DD6;--opin-bg:#13223A;--joke:#E25A8C;--joke-bg:#3A1324;
---f-display:"Do Hyeon","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--f-pixel:"Press Start 2P",monospace;color-scheme:dark}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:19px;line-height:1.6;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 64px}
-.wrap{max-width:1100px;margin:0 auto;display:grid;gap:22px}
-h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance}
-h1{font-size:clamp(30px,4vw,46px);line-height:1.1} h2{font-size:clamp(24px,2.6vw,30px)} h3{font-size:22px}
-.lab{font-size:15px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
-.pix{font-family:var(--f-pixel);font-size:15px}
-header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
-.logo{display:flex;align-items:center;gap:12px}
-.logo .mark{width:46px;height:46px;background:var(--red);display:grid;place-items:center;font-family:var(--f-pixel);font-size:15px;color:#fff}
-.logo .sub{font-size:15px;color:var(--muted)}
-nav{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:17px}
-nav a{color:var(--amber);text-decoration:none;border-bottom:1px solid transparent} nav a:hover{border-bottom-color:var(--amber)}
-.live{display:flex;gap:10px;align-items:center;font-family:var(--f-pixel);font-size:15px}
-.live .dot{width:12px;height:12px;background:var(--red);border-radius:50%;animation:blink 1.2s steps(2) infinite}
-@keyframes blink{50%{opacity:.25}} @media (prefers-reduced-motion:reduce){.live .dot{animation:none}}
-button{font:inherit;font-size:17px;cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:9px 16px}
-button.primary{background:var(--red);color:#fff;border-color:var(--red);font-family:var(--f-display);font-size:22px}
-button.small{font-size:15px;padding:5px 11px}
-button:disabled{opacity:.5;cursor:default}
-button:focus-visible,input:focus{outline:2px solid var(--amber);outline-offset:2px}
-.tv{background:var(--panel);border:1px solid var(--line);padding:14px;display:grid;gap:10px}
-.screen{position:relative;background:var(--set);aspect-ratio:16/9;max-width:100%;overflow:hidden;border:4px solid #000}
-.screen canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
-.onair{position:absolute;top:10px;left:10px;font-family:var(--f-pixel);font-size:15px;color:#fff;background:var(--red);padding:6px 10px}
-.onair.off{background:#333;color:#999}
-.bug{position:absolute;top:10px;right:10px;font-family:var(--f-pixel);font-size:15px;color:var(--amber)}
-.clock{position:absolute;top:40px;right:10px;font-family:var(--f-pixel);font-size:15px;color:#fff;opacity:.85}
-.prog{position:absolute;top:40px;left:10px;font-family:var(--f-display);font-size:clamp(15px,2vw,20px);color:#fff;background:rgba(0,0,0,.5);padding:2px 8px}
-.lower{position:absolute;left:0;right:0;bottom:48px;padding:0 4%}
-.lower .name{display:inline-block;background:var(--red);color:#fff;font-family:var(--f-display);font-size:clamp(16px,2.2vw,24px);padding:2px 12px}
-.lower .line{background:rgba(0,0,0,.78);color:#fff;font-size:clamp(16px,2.4vw,26px);line-height:1.35;padding:8px 14px;font-weight:600;min-height:1.4em}
-.ticker{position:absolute;left:0;right:0;bottom:0;height:40px;background:var(--amber);color:var(--amber-ink);overflow:hidden;display:flex;align-items:center}
-.ticker .tag{background:var(--amber-ink);color:var(--amber);font-family:var(--f-pixel);font-size:15px;padding:0 10px;height:100%;display:flex;align-items:center;flex:none;z-index:1}
-.ticker .roll{white-space:nowrap;font-family:var(--f-display);font-size:21px;padding-left:100%;animation:roll 30s linear infinite}
-@keyframes roll{to{transform:translateX(-100%)}} @media (prefers-reduced-motion:reduce){.ticker .roll{animation:none;padding-left:12px}}
-.card-ov{position:absolute;left:6%;right:6%;top:18%;background:rgba(14,16,20,.9);border-left:6px solid var(--red);padding:14px 18px;display:grid;gap:4px}
-.card-ov[hidden]{display:none}
-.tc-title{font-family:var(--f-display);font-size:clamp(20px,3.4vw,36px);line-height:1.2;color:#fff}
-.shows{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
-.show{background:var(--panel2);border:1px solid var(--line);padding:14px;display:grid;gap:6px}
-.show .hosts{display:flex;gap:6px;align-items:center}
-.show .hosts canvas{width:28px;height:28px;image-rendering:pixelated;background:var(--set)}
-.show.now{border-color:var(--amber)}
-.qs{display:flex;flex-wrap:wrap;gap:6px}
-.qs button{font-size:15px;padding:4px 10px}
-.off-screen{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.72);gap:12px;text-align:center;padding:16px}
-.off-screen p{margin:0;color:var(--muted);font-size:17px;max-width:40ch}
-.off-screen[hidden]{display:none}
-.ctl{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.status{font-size:15px;color:var(--muted);min-height:1.4em}
-.panel{background:var(--panel);border:1px solid var(--line);padding:20px;display:grid;gap:14px;min-width:0}
-.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
-table{width:100%;border-collapse:collapse;font-size:17px} td,th{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top} th{font-size:15px;color:var(--muted);font-weight:400;letter-spacing:.06em}
-td.t{font-family:var(--f-pixel);font-size:15px;white-space:nowrap} tr.now td{color:var(--amber)}
-.kind{font-size:15px;padding:1px 8px;font-weight:600}
-.kind.사실{background:var(--fact-bg);color:var(--fact)} .kind.주장{background:var(--claim-bg);color:var(--claim)} .kind.의견{background:var(--opin-bg);color:var(--opin)} .kind.농담{background:var(--joke-bg);color:var(--joke)}
-.list{display:grid;gap:6px} .list .r{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:8px 0;font-size:17px}
-.when{font-family:var(--f-pixel);font-size:15px;color:var(--muted)}
-.seg{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;padding:8px 0;border-top:1px solid var(--line);font-size:17px}
-.seg .av{width:36px;height:36px;image-rendering:pixelated;background:var(--set)}
-.seg .who{font-family:var(--f-display);font-size:18px;margin-right:8px}
-.seg .src{font-size:15px;color:var(--muted)} .seg a{color:var(--amber)}
-input[type=text]{width:100%;font:inherit;font-size:17px;color:var(--ink);background:var(--bg);border:1px solid var(--line);padding:10px 12px}
-.ask{display:flex;gap:8px} .ask input{flex:1;min-width:0}
-.note{font-size:16px;color:var(--muted);margin:0}
-footer{font-size:15px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;display:grid;gap:4px}
-footer a{color:var(--amber)}
-</style></head><body>
+<link rel="stylesheet" href="/static/rl.css">
+</head><body>
 <div class="wrap">
   <header>
-    <div class="logo"><div class="mark">RL</div><div><h1 id="stName">우측통행</h1><div class="sub" id="stSub">RIGHT LANE NETWORK · 실제 헤드라인, 수상한 앵커들</div></div></div>
-    <nav><a href="#guide">편성표</a><a href="#programs">프로그램</a><a href="#replays">다시보기</a><a href="#ask">데스크에 묻기</a><a href="#tip">후원</a><a href="#about">소개</a><a href="/api/today" target="_blank" rel="noopener">오늘의 우측통행</a><a href="/studio">조정실</a></nav>
+    <div class="logo"><div class="mark">RL</div><div><h1 id="stName">우측통행</h1><div class="sub" id="stSub">RIGHT LANE NETWORK · 실제 헤드라인, 수상한 앵커들.</div></div></div>
+    <nav><a href="#guide">편성표</a><a href="#programs">프로그램</a><a href="/replays">다시보기</a><a href="#ask">데스크에 묻기</a><a href="/about">소개</a></nav>
     <div class="live"><span class="dot"></span><span>LIVE KST <span id="hdrClock">--:--</span></span></div>
   </header>
 
   <div class="tv">
+    <div class="panelbar"><span class="pix" id="monitor">RL-9000</span><span class="pix" id="liveTimer">LIVE 00:00:00</span></div>
     <div class="screen">
       <canvas id="stage" width="320" height="180" aria-label="스튜디오"></canvas>
       <div class="onair off" id="onair">STAND BY</div>
       <div class="prog" id="progName">—</div>
       <div class="bug">RL·NEWS</div><div class="clock" id="tvClock">00:00:00</div>
+      <div class="card-ov" id="titleCard" hidden><div class="lab" id="tcProg">프로그램</div><div class="tc-title" id="tcTitle">제목</div><div class="lab" id="tcMeta"></div></div>
       <div class="lower"><span class="name" id="lowName">우측통행</span><div class="line" id="lowLine">텔레프롬프터 예열 중…</div></div>
       <div class="ticker"><span class="tag">속보</span><div class="roll" id="roll">우측통행 24시간 뉴스 · 앵커는 가상 인물, 해설과 농담은 풍자 · 헤드라인은 원 출처를 확인할 것</div></div>
-      <div class="card-ov" id="titleCard" hidden><div class="lab" id="tcProg">프로그램</div><div class="tc-title" id="tcTitle">제목</div><div class="lab" id="tcMeta"></div></div>
-      <div class="off-screen" id="offScreen"><button type="button" class="primary" id="tvOn">▶ TV 켜기</button><p id="offMsg">켜면 지금 편성된 방송부터 이어서 계속 나온다. 소리는 브라우저 음성.</p></div>
+      <div class="off-screen" id="offScreen"><button type="button" class="primary" id="tvOn">▶ TV 켜기</button><p id="offMsg">켜면 지금 편성된 방송부터 이어서 계속 나온다.</p></div>
     </div>
     <div class="ctl">
       <button type="button" id="tvOff" hidden>■ 끄기</button>
-      <button type="button" class="small" id="skip" hidden>다음 방송 ▶▶</button>
+      <button type="button" class="small" id="skip" hidden>다음 ▶▶</button>
+      <button type="button" class="small" id="mute">🔊 소리</button>
       <button type="button" class="small" id="fs">전체 화면</button>
-      <label style="font-size:15px;display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="useTts" checked> 음성</label><span class="lab" id="ttsNote"></span>
-      <span class="status" id="status"></span>
+      <span class="status" id="status"></span><span class="lab" id="ttsNote"></span>
     </div>
   </div>
 
   <div class="two">
     <section class="panel" id="guide"><h2>편성표</h2>
-      <p class="note">서울 시간 기준. 각 시간대에 들어오면 서버가 그 프로그램 대본을 자동으로 쓰고, TV는 가장 최근 방송부터 이어서 튼다.</p>
+      <p class="note">서울 시간. 각 칸이 시작되면 서버가 그 프로그램을 자동으로 만든다. TV는 가장 최근 방송부터 이어 튼다.</p>
       <table><thead><tr><th>시간</th><th>프로그램</th><th>상태</th></tr></thead><tbody id="guideBody"></tbody></table>
-      <p class="note" id="qNote"></p>
-      <p class="note" id="autoNote">자동 편성 상태 불러오는 중…</p>
+      <p class="note" id="autoNote"></p><p class="note" id="qNote"></p>
     </section>
     <section class="panel" id="ask"><h2>데스크에 묻기</h2>
-      <p class="note">PNN의 "Ask the desk"와 같은 것. 시청자가 앵커에게 질문을 보내면 앵커 셋이 최근 방송 내용 안에서 짧게 답한다. 방송 중이면 화면에서도 읽어준다.</p><div class="qs"><button type="button" class="small">오늘 제일 큰 이슈가 뭐야?</button><button type="button" class="small">팩트-1, 아까 그 주장 확인된 거야?</button><button type="button" class="small">한직진, 너 입장은 뭔데</button></div>
-      <div class="ctl" style="gap:8px"><label class="lab" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="akind" value="question" checked> 질문</label><label class="lab" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="akind" value="letter"> 편지</label><input type="text" id="askName" placeholder="이름 (방송에서 불림, 선택)" style="max-width:220px"></div>
+      <p class="note">질문이 있나? 방송에서 읽을 수도 있다. 이름을 적으면 앵커가 이름을 부른다.</p>
+      <div class="ctl" style="gap:8px"><label class="lab" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="akind" value="question" checked> 질문</label><label class="lab" style="display:inline-flex;gap:6px;align-items:center"><input type="radio" name="akind" value="letter"> 편지</label><input type="text" id="askName" placeholder="이름 (선택)" style="max-width:200px"></div>
       <div class="ask"><input type="text" id="askIn" placeholder="데스크에 보낼 질문"><button type="button" class="primary" id="askBtn" style="font-size:18px">보내기</button></div>
-      <p class="note">보낸 질문은 바로 답을 받고, 다음 저녁·심야·토크 방송에서 이름과 함께 읽힐 수 있다.</p>
+      <div class="qs"><button type="button" class="small">오늘 제일 큰 이슈가 뭐야?</button><button type="button" class="small">팩트-1, 아까 그 주장 확인된 거야?</button><button type="button" class="small">한직진, 너 입장은 뭔데</button></div>
       <div id="askOut" class="list"></div>
     </section>
   </div>
 
-  <section class="panel" id="programs"><h2>프로그램</h2><p class="note">시간대마다 다른 프로그램이 나온다. 진행자는 고정 출연진 3명.</p><div class="shows" id="progList"></div></section>
+  <section class="panel" id="programs"><h2>프로그램</h2><p class="note">시간대마다 다른 프로그램. 출연진은 전부 가상 인물이다.</p><div class="shows" id="progList"></div></section>
 
-  <section class="panel" id="replays"><div class="ctl" style="justify-content:space-between"><h2>다시보기</h2><input type="text" id="rsearch" placeholder="다시보기 검색" style="max-width:260px"></div><p class="note">최근 60편 보관. 각 편은 대본과 음성을 그대로 다시 튼다.</p><div class="list" id="replayList"><p class="note">아직 방송이 없다.</p></div></section>
+  <section class="panel" id="replays"><div class="ctl" style="justify-content:space-between"><h2>다시보기</h2><a href="/replays" class="pix" style="color:var(--amber)">전체 보기 →</a></div><div class="list" id="replayList"><p class="note">아직 방송이 없다.</p></div></section>
 
   <div class="two">
-    <section class="panel" id="tip"><h2>데스크에 술 한잔</h2><p class="note">PNN의 "Newscaster Treasury"에 해당하는 후원함. 아직 계좌·송금 수단을 연결하지 않았다. 열리면 5천 원 이상 후원은 방송에서 이름을 불러 감사 인사를 한다. 후원은 돌려받을 수 없는 선물이며 투자가 아니다.</p><div class="pix" style="color:var(--muted)">TREASURY ₩0 · 준비 중</div></section>
-    <section class="panel" id="social"><h2>채널</h2><p class="note">출력 채널(유튜브·X·인스타·틱톡)은 아직 개설 전이다. 개설되면 여기에 연결되고, 24시간 라이브는 유튜브로 송출한다.</p><div class="pix" style="color:var(--muted)">YOUTUBE · X · INSTAGRAM · TIKTOK · 준비 중</div></section>
+    <section class="panel" id="tip"><h2>데스크에 술 한잔</h2>
+      <div class="pix" style="color:var(--amber);font-size:17px">TREASURY ₩<span id="treasury">0</span></div>
+      <p class="note">5천 원 이상 후원하면 방송에서 이름을 불러 감사 인사를 한다. 후원금은 심야 뒷풀이 소품(가상)에 쓰인다. 후원은 돌려받을 수 없는 선물이며 투자가 아니고, 후원함에 대한 어떤 권리도 생기지 않는다.</p>
+      <p class="note" id="tipNote">송금 수단은 아직 연결 전이다.</p>
+    </section>
+    <section class="panel" id="social"><h2>채널</h2>
+      <div class="links"><span class="chip">YouTube · 준비 중</span><span class="chip">X · 준비 중</span><span class="chip">Instagram · 준비 중</span><span class="chip">TikTok · 준비 중</span></div>
+      <p class="note">출력 채널 개설 후 24시간 라이브는 유튜브로 송출한다. <a href="/api/today" target="_blank" rel="noopener">오늘의 우측통행</a>은 오늘 데스크가 다룬 것(기계가 읽는 형식).</p>
+    </section>
   </div>
 
-  <section class="panel" id="about"><h2>소개</h2>
-    <p class="note">우측통행은 AI 앵커 3명이 24시간 뉴스를 읽는 가상 방송국이다. 헤드라인은 실제 보도(지금은 매일신문)이고 각 항목은 출처 링크를 단다. 해설과 농담은 풍자이지 보도가 아니다. 대사마다 <span class="kind 사실">사실</span> <span class="kind 주장">주장</span> <span class="kind 의견">의견</span> <span class="kind 농담">농담</span> 표시를 붙여, 무엇이 확인된 것이고 무엇이 우리 생각인지 가른다. 앵커는 가상 인물이며 실존 인물을 흉내 내지 않는다. 정정 요청은 데스크에 묻기로.</p>
-  </section>
-  <footer><span>© 우측통행(가칭) · 시험 방송</span><span>재료: 매일신문 유튜브·imaeil.com · 생성: Claude · 음성: 브라우저 TTS(시험)</span></footer>
+  <footer><span>© 우측통행(가칭) · 시험 방송 · 앵커와 출연진은 가상 인물</span><span>헤드라인은 실제 보도(매일신문)이고 각 항목에 출처를 단다. 해설과 농담은 풍자이지 보도가 아니다. 정정 요청은 데스크에 묻기로.</span></footer>
 </div>
-
+<script src="/static/rl.js"></script>
 <script>
 (() => {
-const $ = s => document.querySelector(s);
-const el = (t, a = {}, ...kids) => { const e = document.createElement(t); for (const [k,v] of Object.entries(a)) { if (k==='class') e.className=v; else if (k==='text') e.textContent=v; else e.setAttribute(k,v); } for (const k of kids) if (k!=null) e.append(k); return e; };
-const KST = { timeZone:'Asia/Seoul' };
+const { $, el, KST, fmtWhen, castOf, portrait, say, stopAll, sleep } = RL;
 const tick = () => { const s = new Date().toLocaleTimeString('ko-KR',{...KST,hour12:false}); $('#tvClock').textContent = s; $('#hdrClock').textContent = s.slice(0,5); }; tick(); setInterval(tick,1000);
+RL.mountStage($('#stage'));
+let muted = false; RL.setUseTts(() => !muted);
+$('#mute').onclick = () => { muted = !muted; $('#mute').textContent = muted ? '🔇 음소거' : '🔊 소리'; if (muted) stopAll(); };
+$('#fs').onclick = () => { const sc = document.querySelector('.screen'); try { (sc.requestFullscreen ? sc.requestFullscreen() : Promise.reject()).catch(()=>{}); } catch {} };
 
-const PAL = {k:'#111',s:'#F1C9A5',h:'#2A1F1A',r:'#D7262D',w:'#FFFFFF',b:'#1E3A8A',p:'#7B4FC9',g:'#8A94A6',a:'#F2B134',e:'#222',d:'#3A4150',n:'#C98F6A',t:'#0F7A4F'};
-const SPR = {
-  jikjin:['....hhhhhh....','...hhhhhhhh...','...hhssssss...','...hskksskk...','...hssssssss..','....ssssss....','....ssMMss....','.....ssss.....','...bbbwwbbb...','..bbbbrrbbbb..','..bbbbrrbbbb..','..bbbbbbbbbb..','..bbbbbbbbbb..','..bbbbbbbbbb..'],
-  bora:['....pppppp....','...pppppppp...','..ppssssssp...','..psekksekkp..','..pssssssssp..','..ppssssssp...','...pssMMss....','....ssss......','...wwwwwwww...','..wwaaaaaaww..','..wwaaaaaaww..','..aaaaaaaaaa..','..aaaaaaaaaa..','..aaaaaaaaaa..'],
-  fact:['......a.......','......g.......','..dddddddddd..','..dggggggggd..','..dgtMMMMtgd..','..dgttttttgd..','..dggggggggd..','..dddddddddd..','....dddddd....','..dddddddddd..','..daddddddad..','..dddddddddd..','..dd......dd..','..dd......dd..']
-};
-let cast = [{id:'jikjin',name:'한직진',pitch:.8,rate:1.05},{id:'bora',name:'서보라',pitch:1.25,rate:1.08},{id:'fact',name:'팩트-1',pitch:.6,rate:.95}];
-const castOf = id => cast.find(c => c.id===id) || cast[0];
-function drawSprite(ctx, key, x, y, sc, open) { (SPR[key]||[]).forEach((row,j) => [...row].forEach((c,i) => { let col = PAL[c]; if (c==='M') col = key==='fact' ? (open?PAL.a:PAL.t) : (open?PAL.k:PAL.n); if (!col) return; ctx.fillStyle = col; ctx.fillRect(x+i*sc, y+j*sc, sc, open&&c==='M'&&key!=='fact' ? sc*1.6 : sc); })); }
-function portrait(key){ const c = el('canvas',{width:'14',height:'14'}); const x = c.getContext('2d'); x.fillStyle='#0B2238'; x.fillRect(0,0,14,14); drawSprite(x,key,0,0,1,false); return c; }
-const stage = $('#stage'), sctx = stage.getContext('2d'); let speaking = null;
-function drawStage(t){ sctx.fillStyle='#0B2238'; sctx.fillRect(0,0,320,180); sctx.fillStyle='#132E4C'; sctx.fillRect(20,18,280,70);
-  for (let i=0;i<40;i++){ sctx.fillStyle=(i*7+Math.floor(t/700))%5===0?'#F2B134':'#2B5278'; sctx.fillRect(24+(i*7)%272, 30+((i*13)%50), 2, 2); }
-  sctx.fillStyle='#D7262D'; sctx.fillRect(132,22,56,16); sctx.fillStyle='#fff'; sctx.font='8px "Press Start 2P", monospace'; sctx.fillText('RL NEWS',137,34);
-  sctx.fillStyle='#5A2A1E'; sctx.fillRect(0,128,320,52); sctx.fillStyle='#7A3A28'; sctx.fillRect(0,128,320,4); sctx.fillStyle='#F2B134'; sctx.fillRect(140,146,40,6);
-  const open = speaking && Math.floor(t/120)%2===0;
-  drawSprite(sctx,'jikjin',62,62,5,speaking==='jikjin'&&open); drawSprite(sctx,'bora',190,62,5,speaking==='bora'&&open); drawSprite(sctx,'fact',260,78,3.5,speaking==='fact'&&open); }
-(function loop(t){ drawStage(t||0); requestAnimationFrame(loop); })();
-
-// ---------- data ----------
 let now = null, shows = [];
 async function refresh(){
   try { now = await (await fetch('/api/now')).json(); } catch { return; }
-  shows = now.shows || [];
-  if (now.station) { $('#stName').textContent = now.station.name; $('#stSub').textContent = now.station.sub; }
-  $('#progName').textContent = now.on_now.name;
+  shows = now.shows || []; RL.setCast(now.cast);
+  if (now.station) { $('#stName').textContent = now.station.name; $('#stSub').textContent = (now.station.en||'')+' · '+(now.station.sub||''); $('#monitor').textContent = now.station.monitor||'RL-9000'; }
+  if (!on) $('#progName').textContent = now.on_now.name;
   const gb = $('#guideBody'); gb.replaceChildren();
-  const WD = ['월','화','수','목','금','토','일'];
-  now.schedule.forEach(s => { const isNow = s.start===now.on_now.start && s.name===now.on_now.name; const isNext = s.start===now.up_next.start && s.name===now.up_next.name; const st = isNow ? 'ON NOW' : isNext ? 'UP NEXT' : '';
-    gb.append(el('tr',{class: isNow?'now':''}, el('td',{class:'t',text:s.start+'–'+s.end}), el('td',{text:s.name + (s.wday!=null ? ' ('+WD[s.wday]+'요일)' : '')}), el('td',{class:'pix',text:st}))); });
+  now.schedule.forEach(s => { if (s.wday!=null && s.wday!==now.wday) return;
+    const isNow = s.start===now.on_now.start && s.name===now.on_now.name, isNext = s.start===now.up_next.start && s.name===now.up_next.name;
+    gb.append(el('tr',{class: isNow?'now':''}, el('td',{class:'t',text:s.start+'–'+s.end}), el('td',{text:s.name}), el('td',{class:'pix',text: isNow?'ON NOW': isNext?'UP NEXT':''}))); });
+  const a = now.autopilot; $('#autoNote').textContent = `자동 편성 · 마지막 ${a.last_run||'—'} · ${a.last_result}` + (a.running?' · 생성 중…':'');
   $('#qNote').textContent = now.questions_pending ? `다음 방송에서 읽을 시청자 질문 ${now.questions_pending}개 대기` : '';
+  $('#ttsNote').textContent = now.tts.key ? (now.tts.blocked ? 'AI 음성 할당 대기 → 브라우저 음성' : 'AI 음성') : '브라우저 음성';
   const pl = $('#progList'); pl.replaceChildren();
-  if (now.cast) cast = now.cast.map(c => ({...c}));
-  Object.entries(now.programs||{}).forEach(([name,p]) => { const h = el('div',{class:'hosts'}); (p.hosts||[]).forEach(id => h.append(portrait(id), el('span',{class:'lab',text:castOf(id).name}))); pl.append(el('div',{class:'show'+(name===now.on_now.name?' now':'')}, el('h3',{text:name+(name===now.on_now.name?' · ON NOW':'')}), el('div',{class:'pix',style:'color:var(--amber)',text:p.time||''}), el('div',{style:'font-size:16px',text:p.desc}), h)); });
-  const a = now.autopilot; $('#autoNote').textContent = `자동 편성: ${a.interval_min}분마다 새 영상이 있으면 대본 생성 · 마지막 ${a.last_run||'—'} · ${a.last_result}` + (a.running?' · 생성 중…':'');
-  renderReplays();
-  try { const h = await (await fetch('/health')).json(); $('#ttsNote').textContent = h.tts ? 'AI 음성(Gemini)' : '서버 음성 키 없음 → 브라우저 음성'; } catch {}
-  const tk = shows[0]?.result?.ticker; if (tk && tk.length) $('#roll').textContent = tk.join('   ·   ');
-}
-function renderReplays(){
-  const q = ($('#rsearch').value||'').trim();
+  Object.entries(now.programs||{}).forEach(([name,p]) => { const h = el('div',{class:'hosts'}); (p.hosts||[]).forEach(id => h.append(portrait(id,28), el('span',{class:'lab',text:castOf(id).name})));
+    pl.append(el('div',{class:'show'+(name===now.on_now.name?' now':'')}, el('h3',{text:name+(name===now.on_now.name?' · ON NOW':'')}), el('div',{class:'pix',style:'color:var(--amber)',text:p.time||''}), el('div',{style:'font-size:16px',text:p.desc}), h)); });
   const rl = $('#replayList'); rl.replaceChildren();
-  const list = shows.filter(s => !q || JSON.stringify(s.result).includes(q) || (s.program||'').includes(q));
-  if (!list.length) rl.append(el('p',{class:'note',text: shows.length ? '검색 결과 없음' : '아직 방송이 없다. 자동 편성이 첫 대본을 쓰는 중이면 1~2분 뒤 새로 고침.'}));
-  list.forEach(s => { const b = el('button',{type:'button',class:'small',text:'보기'}); b.onclick = () => openShow(s);
-    rl.append(el('div',{class:'r'}, el('span',{style:'min-width:0;flex:1 1 260px'}, el('span',{class:'when',text:new Date(s.createdAt).toLocaleString('ko-KR',{...KST,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})+'  '}), el('b',{text:(s.result.title||'')+' '}), el('span',{class:'lab',text:(s.program||'')+' · '+s.result.segments.length+'줄'+(s.audio? (s.audio.ready?' · 음성 O':' · 음성 '+s.audio.note):'')})), b)); });
-}
-$('#rsearch').addEventListener('input', renderReplays);
-$('#fs').onclick = () => { const sc = document.querySelector('.screen'); try { (sc.requestFullscreen ? sc.requestFullscreen() : Promise.reject()).catch(()=>{}); } catch {} };
-let opened = null;
-function openShow(s){
-  if (opened) opened.remove();
-  const box = el('div',{class:'panel',style:'margin-top:8px'}); const close = el('button',{type:'button',class:'small',text:'닫기'}); close.onclick = () => { box.remove(); opened = null; };
-  const play = el('button',{type:'button',class:'small',text:'이 방송 틀기'}); play.onclick = () => { queueFrom(s); turnOn(); };
-  box.append(el('div',{class:'ctl'}, el('h3',{text:s.result.title||''}), play, close));
-  s.result.segments.forEach(g => { const av = portrait(g.speaker); av.className='av'; box.append(el('div',{class:'seg'}, av, el('div',{}, el('span',{class:'who',text:castOf(g.speaker).name}), el('span',{class:'kind '+g.kind,text:g.kind}), el('div',{text:g.line}), g.source ? el('div',{class:'src'}, '출처: ', /^https?:/.test(g.source) ? el('a',{href:g.source,target:'_blank',rel:'noopener',text:g.source}) : g.source) : null))); });
-  $('#replayList').before(box); opened = box; box.scrollIntoView({behavior:'smooth',block:'start'});
+  if (!shows.length) rl.append(el('p',{class:'note',text:'아직 방송이 없다. 자동 편성이 첫 방송을 쓰는 중이면 1~2분 뒤 새로 고침.'}));
+  shows.slice(0,8).forEach(s => { const b = el('button',{type:'button',class:'small',text:'이 방송 틀기'}); b.onclick = () => { queue = [s]; qi = 0; if (!on) turnOn(); else skipNow(); };
+    rl.append(el('div',{class:'r'}, el('span',{style:'min-width:0;flex:1 1 260px'}, el('span',{class:'when',text:fmtWhen(s.createdAt)+'  '}), el('b',{text:(s.result.title||'')+' '}), el('span',{class:'lab',text:(s.program||'')+' · '+s.result.segments.length+'줄'+(s.audio&&s.audio.ready?' · AI 음성':'')})), b)); });
+  const tk = shows[0]?.result?.ticker; if (tk && tk.length && !on) $('#roll').textContent = tk.join('   ·   ');
 }
 refresh(); setInterval(refresh, 60000);
 
-// ---------- playback (continuous) ----------
-let on = false, queue = [], idx = 0, playedIds = new Set(), abortSpeech = false;
-const pickVoice = () => { try { return speechSynthesis.getVoices().find(v => /ko/i.test(v.lang)) || null; } catch { return null; } };
-const player = new Audio();
-function playFile(url){ return new Promise(res => { let d=false; const fin=()=>{ if(!d){d=true; player.onended=null; player.onerror=null; res(true);} };
-  player.src = url; player.onended = fin; player.onerror = () => { if(!d){d=true; res(false);} }; player.play().catch(() => { if(!d){d=true; res(false);} }); }); }
-function say(text, c, url){ return new Promise(async res => {
-  if (!$('#useTts').checked) { setTimeout(res, Math.max(1200, text.length*110)); return; }
-  if (url) { const ok = await playFile(url); if (ok) { res(); return; } }
-  if (!('speechSynthesis' in window)) { setTimeout(res, Math.max(1200, text.length*110)); return; }
-  try { const u = new SpeechSynthesisUtterance(text); const v = pickVoice(); if (v) u.voice = v; u.lang='ko-KR'; u.pitch=c.pitch||1; u.rate=c.rate||1; let d=false; const fin=()=>{ if(!d){d=true;res();} }; u.onend=fin; u.onerror=fin; speechSynthesis.speak(u); setTimeout(fin, Math.max(3000, text.length*220)); }
-  catch { setTimeout(res, Math.max(1200, text.length*110)); } }); }
-function queueFrom(s){ queue = [s]; idx = 0; }
-function nextShow(){
-  if (idx < queue.length) return queue[idx++];
-  const fresh = shows.filter(s => !playedIds.has(s.id));
-  if (fresh.length) { const s = fresh[0]; return s; }
-  if (shows.length) { playedIds.clear(); return shows[0]; }
-  return null;
-}
+// ---------- 연속 재생 ----------
+let on = false, queue = [], qi = 0, played = new Set(), abort = false, onSince = 0;
+setInterval(() => { if (on) { const s = Math.floor((Date.now()-onSince)/1000); $('#liveTimer').textContent = 'LIVE ' + [s/3600, s/60%60, s%60].map(x => String(Math.floor(x)).padStart(2,'0')).join(':'); } }, 1000);
+function nextShow(){ if (qi < queue.length) return queue[qi++]; const fresh = shows.filter(s => !played.has(s.id)); if (fresh.length) return fresh[0]; if (shows.length) { played.clear(); return shows[0]; } return null; }
+function skipNow(){ abort = true; stopAll(); }
 async function runLoop(){
+  const msgs = ['텔레프롬프터 예열 중…','잠시만 기다려 주십시오','앵커 분장 중'];
   while (on) {
     const s = nextShow();
-    if (!s) { $('#lowLine').textContent = '첫 방송 대본을 쓰는 중. 잠시 뒤 자동으로 시작.'; await sleep(15000); await refresh(); continue; }
-    playedIds.add(s.id);
-    $('#progName').textContent = s.program || now?.on_now?.name || '';
+    if (!s) { $('#lowLine').textContent = msgs[Math.floor(Date.now()/4000)%msgs.length]; await sleep(5000); await refresh(); continue; }
+    played.add(s.id); abort = false;
     const segs = s.result.segments; const hasAudio = s.audio && s.audio.count > 0;
-    if (s.result.ticker?.length) $('#roll').textContent = s.result.ticker.join('   ·   ');
+    const hosts = [...new Set(segs.map(g => g.speaker))]; RL.setOnStage(hosts);
+    $('#progName').textContent = s.program || ''; if (s.result.ticker?.length) $('#roll').textContent = s.result.ticker.join('   ·   ');
     $('#status').textContent = `방송 중: ${s.result.title||''}`;
-    $('#tcProg').textContent = (s.program||'') + ' · ' + new Date(s.createdAt).toLocaleString('ko-KR',{...KST,month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
-    $('#tcTitle').textContent = s.result.title||''; $('#tcMeta').textContent = '재료: 매일신문 · 출연: ' + [...new Set(segs.map(g=>castOf(g.speaker).name))].join(', ');
-    $('#titleCard').hidden = false; $('#lowName').textContent = s.program||'우측통행'; $('#lowLine').textContent = s.result.hook || s.result.title || ''; speaking = null; await sleep(3500); $('#titleCard').hidden = true;
-    for (let i = 0; i < segs.length; i++) { const g = segs[i];
-      if (!on || abortSpeech) break; if (g.on === false) continue;
-      const c = castOf(g.speaker); speaking = g.speaker; $('#lowName').textContent = c.name; $('#lowLine').textContent = g.line;
-      await say(g.line, c, hasAudio ? `/api/audio/${s.id}/${i}.wav` : null); speaking = null; await sleep(250);
-    }
-    abortSpeech = false;
+    $('#tcProg').textContent = (s.program||'') + ' · ' + fmtWhen(s.createdAt); $('#tcTitle').textContent = s.result.title||''; $('#tcMeta').textContent = '출연: ' + hosts.map(id => castOf(id).name).join(', ');
+    $('#titleCard').hidden = false; $('#lowName').textContent = s.program||'우측통행'; $('#lowLine').textContent = s.result.hook || s.result.title || ''; RL.setSpeaking(null); await sleep(3500); $('#titleCard').hidden = true;
+    for (let i = 0; i < segs.length; i++) { const g = segs[i]; if (!on || abort) break; if (g.on === false) continue;
+      const c = castOf(g.speaker); RL.setSpeaking(g.speaker); $('#lowName').textContent = c.name; $('#lowLine').textContent = g.line;
+      await say(g.line, c, hasAudio ? `/api/audio/${s.id}/${i}.wav` : null); RL.setSpeaking(null); await sleep(250); }
     if (on) { $('#lowName').textContent = '우측통행'; $('#lowLine').textContent = '잠시 후 다음 방송'; await sleep(2500); await refresh(); }
   }
 }
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-function turnOn(){ if (on) { abortSpeech = true; try{speechSynthesis.cancel();}catch{} return; } on = true; $('#offScreen').hidden = true; $('#onair').textContent='ON AIR'; $('#onair').classList.remove('off'); $('#tvOff').hidden=false; $('#skip').hidden=false; try { speechSynthesis.getVoices(); } catch {} runLoop(); }
-function turnOff(){ on = false; abortSpeech = true; speaking = null; try{speechSynthesis.cancel();}catch{} try{player.pause();}catch{} $('#offScreen').hidden=false; $('#onair').textContent='STAND BY'; $('#onair').classList.add('off'); $('#tvOff').hidden=true; $('#skip').hidden=true; $('#status').textContent=''; $('#lowLine').textContent='TV 꺼짐'; }
-$('#tvOn').onclick = turnOn; $('#tvOff').onclick = turnOff; $('#skip').onclick = () => { abortSpeech = true; try{speechSynthesis.cancel();}catch{} try{player.pause();}catch{} };
+function turnOn(){ on = true; onSince = Date.now(); $('#offScreen').hidden = true; $('#onair').textContent='ON AIR'; $('#onair').classList.remove('off'); $('#tvOff').hidden=false; $('#skip').hidden=false; try { speechSynthesis.getVoices(); } catch {} runLoop(); }
+function turnOff(){ on = false; abort = true; RL.setSpeaking(null); stopAll(); $('#offScreen').hidden=false; $('#onair').textContent='STAND BY'; $('#onair').classList.add('off'); $('#tvOff').hidden=true; $('#skip').hidden=true; $('#status').textContent=''; $('#lowLine').textContent='TV 꺼짐'; $('#liveTimer').textContent='LIVE 00:00:00'; }
+$('#tvOn').onclick = turnOn; $('#tvOff').onclick = turnOff; $('#skip').onclick = skipNow;
 
-// ---------- ask ----------
+// ---------- 데스크에 묻기 ----------
 $('#askBtn').onclick = async () => {
   const q = $('#askIn').value.trim(); if (!q) return; $('#askBtn').disabled = true; const out = $('#askOut'); out.replaceChildren(el('p',{class:'note',text:'데스크에 전달 중…'}));
-  try { const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q, name: $('#askName').value.trim(), kind: (document.querySelector('input[name=akind]:checked')||{}).value||'question', on_air: true})}); if (!r.ok) throw new Error((await r.json()).detail||'실패'); const d = await r.json(); out.replaceChildren(); if (d.queued) out.append(el('p',{class:'note',text:'접수됨. 다음 저녁·심야·토크 방송에서 읽힐 수 있다.'}));
-    for (const g of d.segments) { const av = portrait(g.speaker); av.className='av'; out.append(el('div',{class:'seg'}, av, el('div',{}, el('span',{class:'who',text:castOf(g.speaker).name}), el('span',{class:'kind '+(g.kind||'의견'),text:g.kind||'의견'}), el('div',{text:g.line}))));
-      if (on) { const c = castOf(g.speaker); speaking = g.speaker; $('#lowName').textContent = c.name; $('#lowLine').textContent = g.line; await say(g.line, c); speaking = null; } }
+  try { const r = await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q, name: $('#askName').value.trim(), kind: (document.querySelector('input[name=akind]:checked')||{}).value||'question', on_air: true})});
+    if (!r.ok) throw new Error((await r.json()).detail||'실패'); const d = await r.json(); out.replaceChildren(el('p',{class:'note',text:'접수됨. 다음 저녁·심야·토크 방송에서 읽힐 수 있다.'}));
+    for (const g of d.segments) { out.append(el('div',{class:'seg'}, portrait(g.speaker,36), el('div',{}, el('span',{class:'who',text:castOf(g.speaker).name}), el('span',{class:'kind '+(g.kind||'의견'),text:g.kind||'의견'}), el('div',{text:g.line}))));
+      if (on) { const c = castOf(g.speaker); RL.setSpeaking(g.speaker); $('#lowName').textContent = c.name; $('#lowLine').textContent = g.line; await say(g.line, c); RL.setSpeaking(null); } }
   } catch (e) { out.replaceChildren(el('p',{class:'note',text:e.message||'실패'})); } finally { $('#askBtn').disabled = false; }
 };
 $('#askIn').addEventListener('keydown', e => { if (e.key==='Enter') $('#askBtn').click(); });
