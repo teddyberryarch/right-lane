@@ -24,7 +24,7 @@ def kst_str(fmt="%Y-%m-%d %H:%M:%S", ts=None): return time.strftime(fmt, kst(ts)
 SOURCES = json.loads(os.environ.get("SOURCES_JSON") or json.dumps([
     {"id": "maeil", "name": "매일신문", "kind": "news", "youtube_channel_id": "UCGrraKQiTF-ml0KqPQ8mrUA", "rss": "https://www.imaeil.com/rss"},
     {"id": "chamj", "name": "차명진TV", "kind": "youtuber", "youtube_channel_id": "UC-HXN9uJjNoEQP6NuSsvmyA"},
-    {"id": "penn", "name": "펜앤마이크", "kind": "news", "youtube_channel_id": "UC0DSMN_m8Tfp8ruMXRdgjOA", "rss": "https://www.pennmike.com/rss/allArticle.xml"},
+    {"id": "penn", "name": "펜앤마이크", "kind": "news", "youtube_channel_id": "UCOqCunaF9qVN8bXwsK0HT3g", "rss": "https://www.pennmike.com/rss/allArticle.xml"},
 ]))
 CATS = {  # 기사 분류 키워드 (프로그램별 재료 고르기)
     "경제": ["코스피", "코스닥", "주가", "환율", "금리", "증시", "삼성전자", "반도체", "부동산", "물가", "수출", "실적", "투자"],
@@ -464,11 +464,15 @@ def pick_items(slot):
                     items.append(Item(title=a["title"], link=a["link"], article_link=a["link"], article_title=a["title"]))
                     if len(items) >= n: break
         return items
-    queues = [[v for v in s["videos"] if v["vid"] not in used] for s in src]
+    queues = [[v for v in s["videos"] if v["vid"] not in used and (v.get("article") or {}).get("link") not in used] for s in src]
+    seen_art = set()
     while len(items) < n and any(queues):
         for q in queues:
             if q and len(items) < n:
-                v = q.pop(0); items.append(Item(title=v["title"], source=v.get("source"), kind=v.get("kind"), vid=v["vid"], link=v["link"], article_link=(v.get("article") or {}).get("link"), article_title=(v.get("article") or {}).get("title")))
+                v = q.pop(0); al = (v.get("article") or {}).get("link")
+                if al and al in seen_art: continue
+                if al: seen_art.add(al)
+                items.append(Item(title=v["title"], source=v.get("source"), kind=v.get("kind"), vid=v["vid"], link=v["link"], article_link=(v.get("article") or {}).get("link"), article_title=(v.get("article") or {}).get("title")))
     if prog == "rabbit" and not items:
         for s in src:
             for v in s["videos"][:3]: items.append(Item(title=v["title"], vid=v["vid"], link=v["link"], article_link=(v.get("article") or {}).get("link"), article_title=(v.get("article") or {}).get("title")))
@@ -489,7 +493,9 @@ def autopilot_once(force_slot=None):
         pend = [q for q in questions if not q.get("read")][:2] if slot["prog"] in ("evening", "late", "talk", "after") else []
         qtxt = ("시청자 질문 코너를 마지막에 넣는다(보낸 이름을 부르고 2~3줄로 답한다): " + " / ".join(f"[{q.get('name') or '익명'}] {q['text']}" for q in pend)) if pend else ""
         show = make_show(ScriptReq(items=items, prog=slot["prog"], length=slot["length"], note=qtxt, program=slot["name"])); show["auto"] = True; show["slot_key"] = key
-        for it in items: used[it.vid or it.link] = time.time()
+        for it in items:
+            used[it.vid or it.link] = time.time()
+            if it.article_link: used[it.article_link] = time.time()
         save_json(USED_FILE, used)
         for q in pend: q["read"] = show["id"]
         if pend: save_json(Q_FILE, questions)
