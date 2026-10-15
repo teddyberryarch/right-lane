@@ -24,11 +24,12 @@ def kst_str(fmt="%Y-%m-%d %H:%M:%S", ts=None): return time.strftime(fmt, kst(ts)
 SOURCES = json.loads(os.environ.get("SOURCES_JSON") or json.dumps([
     {"id": "maeil", "name": "매일신문", "kind": "news", "youtube_channel_id": "UCGrraKQiTF-ml0KqPQ8mrUA", "rss": "https://www.imaeil.com/rss"},
     {"id": "chamj", "name": "차명진TV", "kind": "youtuber", "youtube_channel_id": "UC-HXN9uJjNoEQP6NuSsvmyA"},
+    {"id": "penn", "name": "펜앤마이크", "kind": "news", "youtube_channel_id": "UC0DSMN_m8Tfp8ruMXRdgjOA", "rss": "https://www.pennmike.com/rss/allArticle.xml"},
 ]))
 CATS = {  # 기사 분류 키워드 (프로그램별 재료 고르기)
     "경제": ["코스피", "코스닥", "주가", "환율", "금리", "증시", "삼성전자", "반도체", "부동산", "물가", "수출", "실적", "투자"],
     "스포츠": ["삼성 라이온즈", "대구FC", "KBO", "프로야구", "K리그", "축구", "야구", "골프", "손흥민", "배구", "농구", "올림픽"],
-    "오피니언": ["[사설]", "[칼럼]", "[기고]", "[매일춘추]", "[야고부]", "[데스크칼럼]"],
+    "오피니언": ["[사설]", "[칼럼]", "[기고]", "[매일춘추]", "[야고부]", "[데스크칼럼]", "[데스크 칼럼]", "[펜앤인터뷰]", "[막전막후]", "이슈in", "정조준", "엮어읽기", "판깨기"],
 }
 
 # ---------- 출연진 (오리지널 캐릭터) ----------
