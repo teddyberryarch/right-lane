@@ -320,7 +320,7 @@ def make_show(req: ScriptReq):
     program = req.program or PROG_NAME.get(req.prog, req.prog)
     show = {"id": str(int(time.time() * 1000)), "createdAt": int(time.time() * 1000), "input": req.model_dump(), "result": res, "program": program, "model": model, "auto": False,
             "material": [{"title": m["title"], "transcript": bool(m["transcript"]), "transcript_note": m["transcript_note"], "article": bool(m["article"])} for m in material],
-            "audio": {"ready": False, "note": "생성 중" if os.environ.get("GEMINI_API_KEY") else "GEMINI_API_KEY 없음", "count": 0}}
+            "audio": {"ready": False, "note": "생성 중" if tts_key(TTS_ENGINE) else f"{TTS_ENGINE} 키 없음", "count": 0}}
     shows.insert(0, show); del shows[80:]; save_json(SHOWS_FILE, shows)
     synth_async(show); return show
 
@@ -335,30 +335,65 @@ def api_del(sid: str):
     global shows
     shows = [s for s in shows if s["id"] != sid]; save_json(SHOWS_FILE, shows); return {"ok": True}
 
-# ---------- 음성 (Gemini TTS) ----------
+# ---------- 음성 (다중 엔진: gemini / google / elevenlabs / openai) ----------
+# TTS_ENGINE 환경변수로 선택. 키: GEMINI_API_KEY / GOOGLE_TTS_API_KEY(없으면 GEMINI 키 재사용) / ELEVENLABS_API_KEY / OPENAI_API_KEY
+TTS_ENGINE = os.environ.get("TTS_ENGINE", "gemini")
 TTS_MODEL = os.environ.get("TTS_MODEL", "gemini-2.5-flash-preview-tts")
 tts_state = {"blocked_until": 0, "last_error": ""}
-def tts_segment(text, speaker):
-    key = os.environ.get("GEMINI_API_KEY")
-    if not key: return None, "GEMINI_API_KEY 없음"
-    if time.time() < tts_state["blocked_until"]: return None, "할당 초과(대기)"
-    c = next((x for x in settings["cast"] if x["id"] == speaker), settings["cast"][0]); voice, style = c.get("tts", ["Charon", "뉴스 앵커"])
-    body = {"contents": [{"parts": [{"text": f"{style}. 다음 문장만 읽는다:\n\n{text}"}]}], "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
-    for attempt in range(3):
-        r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{TTS_MODEL}:generateContent", params={"key": key}, json=body, timeout=90)
-        if r.status_code == 429:
-            m = re.search(r'"retryDelay":\s*"(\d+)s"', r.text); delay = int(m.group(1)) if m else 30
-            if delay > 120: tts_state["blocked_until"] = time.time() + delay; tts_state["last_error"] = "일일 할당 초과"; return None, "일일 할당 초과"
-            time.sleep(delay + 2); continue
-        if r.status_code != 200: tts_state["last_error"] = r.text[:120]; return None, f"HTTP {r.status_code}"
-        try:
-            part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
-            pcm = base64.b64decode(part["data"]); mime = part.get("mimeType", "audio/L16;rate=24000")
-            rate = int(re.search(r"rate=(\d+)", mime).group(1)) if "rate=" in mime else 24000
-            hdr = b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) + b"data" + struct.pack("<I", len(pcm))
-            return hdr + pcm, "ok"
-        except Exception as ex: return None, f"파싱 실패 {type(ex).__name__}"
-    return None, "429 반복"
+# 엔진별 기본 목소리 (출연진 tts 칸에 engine별 지정이 없을 때, 성별로 고름)
+TTS_DEFAULT_VOICE = {
+    "google": {"m": "ko-KR-Chirp3-HD-Charon", "f": "ko-KR-Chirp3-HD-Leda", "robot": "ko-KR-Chirp3-HD-Iapetus"},
+    "elevenlabs": {"m": os.environ.get("ELEVEN_VOICE_M", "JBFqnCBsd6RMkjVDRZzb"), "f": os.environ.get("ELEVEN_VOICE_F", "EXAVITQu4vr4xnSDxMaL"), "robot": os.environ.get("ELEVEN_VOICE_R", "onwK4e9ZLuTAKqWW03F9")},
+    "openai": {"m": "onyx", "f": "nova", "robot": "ash"},
+}
+def tts_key(engine):
+    return {"gemini": os.environ.get("GEMINI_API_KEY"), "google": os.environ.get("GOOGLE_TTS_API_KEY") or os.environ.get("GEMINI_API_KEY"),
+            "elevenlabs": os.environ.get("ELEVENLABS_API_KEY"), "openai": os.environ.get("OPENAI_API_KEY")}.get(engine)
+def wav_from_pcm(pcm, rate=24000):
+    return b"RIFF" + struct.pack("<I", 36 + len(pcm)) + b"WAVEfmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16) + b"data" + struct.pack("<I", len(pcm)) + pcm
+def cast_voice(c, engine):
+    """출연진 한 명의 (voice, style) — c["voices"][engine]가 있으면 그것, 없으면 성별 기본값"""
+    style = (c.get("tts") or ["", "뉴스 앵커"])[1]
+    v = (c.get("voices") or {}).get(engine)
+    if engine == "gemini": return (c.get("tts") or ["Charon"])[0], style
+    return v or TTS_DEFAULT_VOICE[engine].get((c.get("sprite") or ["m"])[0], TTS_DEFAULT_VOICE[engine]["m"]), style
+def tts_segment(text, speaker, engine=None):
+    engine = engine or TTS_ENGINE; key = tts_key(engine)
+    if not key: return None, f"{engine} 키 없음"
+    if engine == "gemini" and time.time() < tts_state["blocked_until"]: return None, "할당 초과(대기)"
+    c = next((x for x in settings["cast"] if x["id"] == speaker), settings["cast"][0]); voice, style = cast_voice(c, engine)
+    try:
+        if engine == "gemini":
+            body = {"contents": [{"parts": [{"text": f"{style}. 다음 문장만 읽는다:\n\n{text}"}]}], "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
+            for attempt in range(3):
+                r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{TTS_MODEL}:generateContent", params={"key": key}, json=body, timeout=90)
+                if r.status_code == 429:
+                    m = re.search(r'"retryDelay":\s*"(\d+)s"', r.text); delay = int(m.group(1)) if m else 30
+                    if delay > 120: tts_state["blocked_until"] = time.time() + delay; tts_state["last_error"] = "일일 할당 초과"; return None, "일일 할당 초과"
+                    time.sleep(delay + 2); continue
+                if r.status_code != 200: tts_state["last_error"] = r.text[:120]; return None, f"HTTP {r.status_code}"
+                part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+                pcm = base64.b64decode(part["data"]); mime = part.get("mimeType", "audio/L16;rate=24000")
+                rate = int(re.search(r"rate=(\d+)", mime).group(1)) if "rate=" in mime else 24000
+                return wav_from_pcm(pcm, rate), "ok"
+            return None, "429 반복"
+        if engine == "google":
+            body = {"input": {"text": text}, "voice": {"languageCode": "ko-KR", "name": voice}, "audioConfig": {"audioEncoding": "LINEAR16", "sampleRateHertz": 24000}}
+            r = requests.post("https://texttospeech.googleapis.com/v1/text:synthesize", params={"key": key}, json=body, timeout=60)
+            if r.status_code != 200: tts_state["last_error"] = r.text[:120]; return None, f"HTTP {r.status_code}"
+            return base64.b64decode(r.json()["audioContent"]), "ok"  # LINEAR16은 WAV 헤더 포함
+        if engine == "elevenlabs":
+            r = requests.post(f"https://api.elevenlabs.io/v1/text-to-speech/{voice}", params={"output_format": "pcm_24000"}, headers={"xi-api-key": key},
+                              json={"text": text, "model_id": os.environ.get("ELEVEN_MODEL", "eleven_multilingual_v2"), "voice_settings": {"stability": 0.5, "similarity_boost": 0.8, "style": 0.3}}, timeout=90)
+            if r.status_code != 200: tts_state["last_error"] = r.text[:120]; return None, f"HTTP {r.status_code}"
+            return wav_from_pcm(r.content, 24000), "ok"
+        if engine == "openai":
+            r = requests.post("https://api.openai.com/v1/audio/speech", headers={"Authorization": f"Bearer {key}"},
+                              json={"model": os.environ.get("OPENAI_TTS_MODEL", "gpt-4o-mini-tts"), "voice": voice, "input": text, "instructions": style, "response_format": "wav"}, timeout=90)
+            if r.status_code != 200: tts_state["last_error"] = r.text[:120]; return None, f"HTTP {r.status_code}"
+            return r.content, "ok"
+        return None, f"모르는 엔진 {engine}"
+    except Exception as ex: tts_state["last_error"] = type(ex).__name__; return None, f"실패 {type(ex).__name__}"
 def synth_show(show):
     sid = show["id"]; d = AUDIO / sid; d.mkdir(exist_ok=True); errs = []
     for i, seg in enumerate(show["result"]["segments"]):
@@ -372,9 +407,15 @@ def synth_show(show):
     show["audio"] = {"ready": not errs, "note": errs[0] if errs else "ok", "count": len(list(d.glob("*.wav")))}; save_json(SHOWS_FILE, shows)
 def synth_async(show): threading.Thread(target=synth_show, args=(show,), daemon=True).start()
 def synth_backlog():
-    if not os.environ.get("GEMINI_API_KEY") or time.time() < tts_state["blocked_until"]: return
+    if not tts_key(TTS_ENGINE) or (TTS_ENGINE == "gemini" and time.time() < tts_state["blocked_until"]): return
     for s in shows[:10]:
         if not s.get("audio", {}).get("ready"): synth_show(s)
+@app.get("/api/tts/test")
+def api_tts_test(engine: str = "", speaker: str = "jikjin", text: str = "우측통행 뉴스입니다. 코스피가 오늘 8% 빠졌습니다. 이게 뉴스입니다."):
+    """엔진·출연진별 음성 샘플. 브라우저에서 바로 재생. 예: /api/tts/test?engine=openai&speaker=bora"""
+    wav, note = tts_segment(text, speaker, engine or None)
+    if not wav: raise HTTPException(502, note)
+    return Response(wav, media_type="audio/wav", headers={"Cache-Control": "no-store"})
 @app.get("/api/audio/{sid}/{i}.wav")
 def api_audio(sid: str, i: int):
     f = AUDIO / sid / f"{i}.wav"
@@ -471,7 +512,7 @@ def api_now():
     return {"kst": kst_str("%H:%M"), "date": kst_str("%Y-%m-%d"), "wday": kst().tm_wday, "on_now": slot_for(), "up_next": next_slot(),
             "schedule": [{"start": a, "end": b, "name": nm, "prog": p, "wday": wd} for a, b, p, l, nm, n, wd in SCHEDULE],
             "programs": PROGRAMS, "cast": settings["cast"], "station": settings["station"],
-            "autopilot": {**auto_state, "interval_min": AUTO_MIN}, "tts": {"key": bool(os.environ.get("GEMINI_API_KEY")), "blocked": time.time() < tts_state["blocked_until"], "last_error": tts_state["last_error"]},
+            "autopilot": {**auto_state, "interval_min": AUTO_MIN}, "tts": {"engine": TTS_ENGINE, "key": bool(tts_key(TTS_ENGINE)), "blocked": time.time() < tts_state["blocked_until"], "last_error": tts_state["last_error"]},
             "questions_pending": len([q for q in questions if not q.get("read")]), "shows": shows[:40]}
 @app.post("/api/autopilot/run")
 def api_auto_run(prog: str | None = None):
@@ -525,7 +566,7 @@ def api_settings_put(req: SettingsReq):
         if v is not None: settings[k] = v
     save_json(SETTINGS_FILE, settings); return settings
 @app.get("/health")
-def health(): return {"ok": True, "key": bool(os.environ.get("ANTHROPIC_API_KEY")), "tts": bool(os.environ.get("GEMINI_API_KEY"))}
+def health(): return {"ok": True, "key": bool(os.environ.get("ANTHROPIC_API_KEY")), "tts": bool(tts_key(TTS_ENGINE)), "tts_engine": TTS_ENGINE}
 
 # ---------- 페이지 ----------
 @app.get("/")
